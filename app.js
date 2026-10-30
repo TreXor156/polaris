@@ -1,45 +1,25 @@
-// --- CONFIGURATION ---
-const SHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
-const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
-const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
+// --- CONFIGURATION & ENDPOINTS ---
+const SPREADSHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
+const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
+const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
 
-// State containers
+// In-memory data store
 let libraryBooks = [];
 let libraryPages = [];
+let activeTagFilter = null;
 
-// DOM Elements
-const bookGrid = document.getElementById("bookGrid");
-const shelfCount = document.getElementById("shelfCount");
+// --- INITIALIZATION ---
+document.addEventListener("DOMContentLoaded", () => {
+  initSearchAndFilters();
+  fetchCatalog();
+});
 
-/**
- * Parses raw Google Visualization API response text into clean JSON objects
- */
-function parseGvizResponse(rawText) {
-  // GViz wraps JSON in: /*O_o*/ google.visualization.Query.setResponse({...});
-  const jsonStart = rawText.indexOf("{");
-  const jsonEnd = rawText.lastIndexOf("}") + 1;
-  const jsonString = rawText.substring(jsonStart, jsonEnd);
-  const data = JSON.parse(jsonString);
-
-  const cols = data.table.cols.map(c => (c ? c.label : ""));
-  return data.table.rows.map(row => {
-    const rowObj = {};
-    row.c.forEach((cell, idx) => {
-      const colName = cols[idx] || `col_${idx}`;
-      rowObj[colName] = cell && cell.v !== null ? cell.v : "";
-    });
-    return rowObj;
-  });
-}
-
-/**
- * Fetches all books and pages from Google Sheets
- */
+// --- FETCH & PARSE DATA ---
 async function fetchCatalog() {
-  try {
-    if (shelfCount) shelfCount.textContent = "Connecting to database...";
+  const shelfCount = document.getElementById("shelfCount");
+  if (shelfCount) shelfCount.innerText = "Connecting to database...";
 
-    // Concurrent fetch for high performance
+  try {
     const [booksRes, pagesRes] = await Promise.all([
       fetch(BOOKS_URL),
       fetch(PAGES_URL)
@@ -53,67 +33,145 @@ async function fetchCatalog() {
 
     renderBookshelf(libraryBooks);
   } catch (error) {
-    console.error("Fetch Engine Error:", error);
-    if (shelfCount) shelfCount.textContent = "Error loading database";
-    if (bookGrid) {
-      bookGrid.innerHTML = `
-        <div class="col-span-full p-6 bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
-          <p class="font-bold">Failed to load catalog.</p>
-          <p class="text-xs mt-1">Verify that your Polaris_Database Google Sheet sharing is set to "Anyone with the link can view".</p>
-        </div>
-      `;
+    console.error("Fetch error:", error);
+    if (shelfCount) shelfCount.innerText = "Error loading catalog";
+    const grid = document.getElementById("bookGrid");
+    if (grid) {
+      grid.innerHTML = `
+        <div class="col-span-full p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          Failed to load database. Please verify spreadsheet sharing permissions.
+        </div>`;
     }
   }
 }
 
-/**
- * Renders parent book cards dynamically into the HTML grid
- */
-function renderBookshelf(books) {
-  if (!bookGrid) return;
-  bookGrid.innerHTML = "";
-
-  if (books.length === 0) {
-    bookGrid.innerHTML = `<p class="col-span-full text-slate-400 text-center py-8">No playbooks found in database.</p>`;
-    if (shelfCount) shelfCount.textContent = "0 Playbooks available";
-    return;
-  }
-
-  if (shelfCount) {
-    shelfCount.textContent = `${books.length} Playbook${books.length > 1 ? "s" : ""} Available`;
-  }
-
-  books.forEach(book => {
-    // Count associated pages dynamically from the pages state
-    const pageCount = libraryPages.filter(p => p.book_id === book.book_id).length;
-
-    const card = document.createElement("div");
-    card.className = "bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between";
-    card.innerHTML = `
-      <div>
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-            ${book.category || "General"}
-          </span>
-          <span class="text-xs font-mono text-slate-400">${book.book_id || "N/A"}</span>
-        </div>
-        <h3 class="font-bold text-slate-900 text-lg hover:text-brand-600 cursor-pointer transition">
-          ${book.title || "Untitled Book"}
-        </h3>
-        <p class="text-slate-600 text-sm mt-2 line-clamp-2">
-          ${book.description || "No description provided."}
-        </p>
-      </div>
-      <div class="pt-6 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <span>Owner: ${book.owner_poc || "L&D Team"}</span>
-        <span class="font-medium text-brand-600 hover:underline cursor-pointer">
-          ${pageCount} Page${pageCount === 1 ? "" : "s"} &rarr;
-        </span>
-      </div>
-    `;
-    bookGrid.appendChild(card);
+function parseGvizResponse(rawText) {
+  const jsonString = rawText.substring(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1);
+  const data = JSON.parse(jsonString);
+  const cols = data.table.cols.map(c => (c.label || c.id).trim().toLowerCase());
+  
+  return data.table.rows.map(row => {
+    let item = {};
+    row.c.forEach((cell, i) => {
+      item[cols[i]] = cell ? (cell.f || cell.v) : "";
+    });
+    return item;
   });
 }
 
-// Initialize on page load
-document.addEventListener("DOMContentLoaded", fetchCatalog);
+// --- SEARCH & FILTER CONTROLLER ---
+function initSearchAndFilters() {
+  const searchInput = document.getElementById("globalSearchInput");
+
+  // Real-time search as user types
+  if (searchInput) {
+    searchInput.addEventListener("input", (e) => {
+      applyFilters();
+    });
+  }
+
+  // Hook up tag buttons/pills
+  document.querySelectorAll(".tag-filter-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const selectedTag = e.target.getAttribute("data-tag") || e.target.innerText.replace("#", "").trim();
+      
+      // Toggle filter on/off
+      if (activeTagFilter === selectedTag) {
+        activeTagFilter = null;
+        e.target.classList.remove("ring-2", "ring-white");
+      } else {
+        document.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.remove("ring-2", "ring-white"));
+        activeTagFilter = selectedTag;
+        e.target.classList.add("ring-2", "ring-white");
+      }
+
+      applyFilters();
+    });
+  });
+}
+
+function applyFilters() {
+  const searchInput = document.getElementById("globalSearchInput");
+  const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
+
+  const filtered = libraryBooks.filter(book => {
+    // 1. Check child pages belonging to this book
+    const relatedPages = libraryPages.filter(p => String(p.book_id) === String(book.book_id));
+
+    // 2. Evaluate Tag Filter (if active)
+    let matchesTag = true;
+    if (activeTagFilter) {
+      matchesTag = relatedPages.some(p => {
+        const pageTags = (p.tags || "").toLowerCase().split(",").map(t => t.trim());
+        return pageTags.includes(activeTagFilter.toLowerCase());
+      });
+    }
+
+    if (!matchesTag) return false;
+
+    // 3. Evaluate Search Query Match
+    if (!query) return true;
+
+    const bookMatches = 
+      (book.title || "").toLowerCase().includes(query) ||
+      (book.description || "").toLowerCase().includes(query) ||
+      (book.category || "").toLowerCase().includes(query) ||
+      (book.book_id || "").toLowerCase().includes(query);
+
+    const pagesMatch = relatedPages.some(p => 
+      (p.title || "").toLowerCase().includes(query) ||
+      (p.body_markdown || "").toLowerCase().includes(query) ||
+      (p.tags || "").toLowerCase().includes(query)
+    );
+
+    return bookMatches || pagesMatch;
+  });
+
+  renderBookshelf(filtered);
+}
+
+// --- RENDER FUNCTION ---
+function renderBookshelf(books) {
+  const grid = document.getElementById("bookGrid");
+  const shelfCount = document.getElementById("shelfCount");
+
+  if (shelfCount) {
+    const total = books.length;
+    let label = total === 1 ? "1 Playbook" : `${total} Playbooks`;
+    if (activeTagFilter) label += ` (Filtered by #${activeTagFilter})`;
+    shelfCount.innerText = `${label} Available`;
+  }
+
+  if (!grid) return;
+
+  if (books.length === 0) {
+    grid.innerHTML = `
+      <div class="col-span-full py-12 text-center text-slate-400">
+        <p class="text-base font-medium text-slate-600">No matching playbooks found</p>
+        <p class="text-xs mt-1">Try adjusting your search query or removing active tag filters.</p>
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = books.map(book => {
+    const pageCount = libraryPages.filter(p => String(p.book_id) === String(book.book_id)).length;
+    return `
+      <div class="bg-white border border-slate-200 rounded-xl p-5 hover:border-brand-500 hover:shadow-md transition cursor-pointer flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-100">
+              ${book.category || "General"}
+            </span>
+            <span class="text-xs font-mono text-slate-400">${book.book_id || ""}</span>
+          </div>
+          <h3 class="font-bold text-slate-800 text-base leading-snug mb-1">${book.title || "Untitled Book"}</h3>
+          <p class="text-xs text-slate-500 line-clamp-2 mb-4">${book.description || "No description provided."}</p>
+        </div>
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-400">
+          <span>POC: ${book.owner_poc || "Unassigned"}</span>
+          <span class="font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full text-[11px]">${pageCount} ${pageCount === 1 ? "Page" : "Pages"}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
