@@ -159,9 +159,9 @@ function renderBookshelf(books) {
     const pageCount = bookPages.length;
     const firstPageId = pageCount > 0 ? bookPages[0].page_id : null;
 
-    // Action button opens the page viewer or warns if no pages exist
-    const actionClick = firstPageId
-      ? `viewPage('${firstPageId}')`
+    // Action button passes both firstPageId and the book_id to load all siblings
+    const actionClick = firstPageId 
+      ? `viewPage('${firstPageId}', '${book.book_id}')` 
       : `alert('No pages published for this playbook yet.')`;
 
     return `
@@ -239,6 +239,64 @@ function viewPage(pageId) {
       <div class="flex items-center gap-2 mb-6">
         <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">${page.page_id}</span>
         <span class="text-xs text-slate-400">Book: ${page.book_id}</span>
+      </div>
+
+      <div class="prose max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">
+        ${page.body_markdown || 'No content available.'}
+      </div>
+    </div>
+  `;
+}
+
+// --- PAGE VIEW RENDERER WITH MULTI-PAGE NAVIGATION ---
+function viewPage(pageId, bookId) {
+  const page = libraryPages.find(p => String(p.page_id) === String(pageId));
+  const activeBookId = bookId || (page ? page.book_id : null);
+  const pagesInBook = libraryPages.filter(p => String(p.book_id) === String(activeBookId));
+
+  const container = document.getElementById("bookGrid");
+  const shelfCount = document.getElementById("shelfCount");
+
+  if (!page || !container) return;
+
+  if (shelfCount) {
+    shelfCount.innerText = `Viewing Page: ${page.page_id} (${pagesInBook.length} in Playbook)`;
+  }
+
+  // Render navigation pills for every page belonging to this playbook
+  const pageTabs = pagesInBook.map(p => {
+    const isActive = String(p.page_id) === String(page.page_id);
+    const activeClass = isActive 
+      ? "bg-brand-600 text-white font-semibold shadow-sm" 
+      : "bg-slate-100 text-slate-700 hover:bg-slate-200";
+    return `
+      <button onclick="viewPage('${p.page_id}', '${activeBookId}')" 
+              class="px-3 py-1.5 rounded-lg text-xs transition cursor-pointer ${activeClass}">
+        Page ${p.page_number || ''}: ${p.title}
+      </button>
+    `;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="col-span-full max-w-4xl mx-auto w-full bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+      <!-- Top Actions Bar -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+        <button type="button" onclick="renderBookshelf(libraryBooks)" class="text-xs text-brand-600 hover:underline inline-flex items-center gap-1 font-medium cursor-pointer">
+          &larr; Back to Bookshelf
+        </button>
+        <!-- Page navigation switcher -->
+        <div class="flex flex-wrap gap-2">
+          ${pageTabs}
+        </div>
+      </div>
+
+      <!-- Document Control Governance Header -->
+      ${renderDocumentControlHeader(page)}
+
+      <h1 class="text-2xl font-bold text-slate-900 mb-2">${page.title || 'Untitled Page'}</h1>
+      <div class="flex items-center gap-2 mb-6">
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">${page.page_id}</span>
+        <span class="text-xs text-slate-400 font-mono">Book: ${page.book_id}</span>
       </div>
 
       <div class="prose max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">
