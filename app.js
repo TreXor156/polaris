@@ -154,9 +154,18 @@ function renderBookshelf(books) {
   }
 
   grid.innerHTML = books.map(book => {
-    const pageCount = libraryPages.filter(p => String(p.book_id) === String(book.book_id)).length;
+    // Find all pages linked to this parent book
+    const bookPages = libraryPages.filter(p => String(p.book_id) === String(book.book_id));
+    const pageCount = bookPages.length;
+    const firstPageId = pageCount > 0 ? bookPages[0].page_id : null;
+
+    // Action button opens the page viewer or warns if no pages exist
+    const actionClick = firstPageId
+      ? `viewPage('${firstPageId}')`
+      : `alert('No pages published for this playbook yet.')`;
+
     return `
-      <div class="bg-white border border-slate-200 rounded-xl p-5 hover:border-brand-500 hover:shadow-md transition cursor-pointer flex flex-col justify-between">
+      <div class="bg-white border border-slate-200 rounded-xl p-5 hover:border-brand-500 hover:shadow-md transition flex flex-col justify-between">
         <div>
           <div class="flex items-center justify-between mb-3">
             <span class="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded bg-brand-50 text-brand-700 border border-brand-100">
@@ -164,14 +173,77 @@ function renderBookshelf(books) {
             </span>
             <span class="text-xs font-mono text-slate-400">${book.book_id || ""}</span>
           </div>
-          <h3 class="font-bold text-slate-800 text-base leading-snug mb-1">${book.title || "Untitled Book"}</h3>
+          <h3 onclick="${actionClick}" class="font-bold text-slate-800 text-base leading-snug mb-1 hover:text-brand-600 cursor-pointer transition">
+            ${book.title || "Untitled Book"}
+          </h3>
           <p class="text-xs text-slate-500 line-clamp-2 mb-4">${book.description || "No description provided."}</p>
         </div>
         <div class="flex items-center justify-between pt-3 border-t border-slate-100 text-xs text-slate-400">
           <span>POC: ${book.owner_poc || "Unassigned"}</span>
-          <span class="font-medium text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full text-[11px]">${pageCount} ${pageCount === 1 ? "Page" : "Pages"}</span>
+          <button type="button" onclick="${actionClick}" class="font-medium text-brand-600 hover:underline cursor-pointer">
+            ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
+          </button>
         </div>
       </div>
     `;
   }).join("");
+}
+
+// --- GOVERNANCE & DOCUMENT CONTROL HEADER ---
+function renderDocumentControlHeader(page) {
+  const today = new Date();
+  const reviewDueDate = new Date(page.next_review_due);
+  const isStale = today > reviewDueDate || page.status === "PENDING_REVIEW";
+
+  const statusBadge = isStale 
+    ? `<span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-300">⚠️ PENDING REVIEW (Stale)</span>`
+    : `<span class="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">✅ PUBLISHED</span>`;
+
+  return `
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+      <div class="flex items-center gap-3">
+        ${statusBadge}
+        <span><strong>Version:</strong> ${page.version || 'v1.0'}</span>
+        <span><strong>Owner:</strong> ${page.document_owner || 'SME - Sales Ops'}</span>
+      </div>
+      <div class="flex items-center gap-3 text-slate-500 font-mono">
+        <span><strong>Last Reviewed:</strong> ${page.last_reviewed_date || 'N/A'}</span>
+        <span><strong>Next Review:</strong> ${page.next_review_due || 'N/A'}</span>
+      </div>
+    </div>
+  `;
+}
+
+// --- PAGE VIEW RENDERER ---
+function viewPage(pageId) {
+  const page = libraryPages.find(p => String(p.page_id) === String(pageId));
+  const container = document.getElementById("bookGrid");
+  const shelfCount = document.getElementById("shelfCount");
+
+  if (!page || !container) return;
+
+  if (shelfCount) {
+    shelfCount.innerText = `Viewing Page: ${page.page_id}`;
+  }
+
+  container.innerHTML = `
+    <div class="col-span-full max-w-4xl mx-auto w-full bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
+      <button type="button" onclick="renderBookshelf(libraryBooks)" class="text-xs text-brand-600 hover:underline mb-4 inline-flex items-center gap-1 font-medium cursor-pointer">
+        &larr; Back to Bookshelf
+      </button>
+
+      <!-- Document Control Governance Header -->
+      ${renderDocumentControlHeader(page)}
+
+      <h1 class="text-2xl font-bold text-slate-900 mb-2">${page.title || 'Untitled Page'}</h1>
+      <div class="flex items-center gap-2 mb-6">
+        <span class="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">${page.page_id}</span>
+        <span class="text-xs text-slate-400">Book: ${page.book_id}</span>
+      </div>
+
+      <div class="prose max-w-none text-slate-700 whitespace-pre-wrap leading-relaxed text-sm">
+        ${page.body_markdown || 'No content available.'}
+      </div>
+    </div>
+  `;
 }
