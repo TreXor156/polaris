@@ -11,8 +11,10 @@ let activeCategoryFilter = "ALL";
 
 // --- INITIALIZATION ---
 document.addEventListener("DOMContentLoaded", () => {
-  initSearchAndFilters();
-  initCategoryTabs();
+  const searchInput = document.getElementById("globalSearchInput");
+  if (searchInput) {
+    searchInput.addEventListener("input", () => applyFilters());
+  }
   fetchCatalog();
 });
 
@@ -33,10 +35,13 @@ async function fetchCatalog() {
     libraryBooks = parseGvizResponse(booksText);
     libraryPages = parseGvizResponse(pagesText);
 
-    // Update ribbon metrics
-    const statElem = document.getElementById("statPlaybooks");
-    if (statElem) statElem.innerText = `${libraryBooks.length} Catalogued`;
+    // 1. Populate Popular Tags from the Pages database tab
+    populatePopularTags();
 
+    // 2. Populate Categories from the Books database tab
+    populateCategories();
+
+    // 3. Render Bookshelf
     renderBookshelf(libraryBooks);
   } catch (error) {
     console.error("Fetch error:", error);
@@ -66,35 +71,70 @@ function parseGvizResponse(rawText) {
   });
 }
 
-// --- SEARCH & CATEGORY CONTROLLERS ---
-function initSearchAndFilters() {
-  const searchInput = document.getElementById("globalSearchInput");
-  if (searchInput) {
-    searchInput.addEventListener("input", () => applyFilters());
+// --- POPULATE TAGS & CATEGORIES FROM DATABASE ---
+function populatePopularTags() {
+  const tagsContainer = document.getElementById("dynamicTagsContainer");
+  if (!tagsContainer) return;
+
+  // Extract all distinct tags from libraryPages
+  const rawTags = libraryPages.flatMap(p => 
+    (p.tags || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
+  );
+  const distinctTags = [...new Set(rawTags)];
+
+  if (distinctTags.length === 0) {
+    tagsContainer.innerHTML = `<span class="text-slate-300 font-medium">Popular Tags:</span> <span class="text-xs text-slate-400">No tags recorded.</span>`;
+    return;
   }
 
-  document.querySelectorAll(".tag-filter-btn").forEach(btn => {
+  tagsContainer.innerHTML = `
+    <span class="text-slate-300 font-medium">Popular Tags:</span>
+    ${distinctTags.map(tag => `
+      <button type="button" 
+              class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" 
+              data-tag="${tag}">
+        #${tag}
+      </button>
+    `).join("")}
+  `;
+
+  // Attach click listeners to dynamically created tag buttons
+  tagsContainer.querySelectorAll(".tag-filter-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
-      const selectedTag = e.target.getAttribute("data-tag") || e.target.innerText.replace("#", "").trim();
-      
+      const selectedTag = e.target.getAttribute("data-tag");
       if (activeTagFilter === selectedTag) {
         activeTagFilter = null;
         e.target.classList.remove("ring-2", "ring-white", "bg-white/30");
       } else {
-        document.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.remove("ring-2", "ring-white", "bg-white/30"));
+        tagsContainer.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.remove("ring-2", "ring-white", "bg-white/30"));
         activeTagFilter = selectedTag;
         e.target.classList.add("ring-2", "ring-white", "bg-white/30");
       }
-
       applyFilters();
     });
   });
 }
 
-function initCategoryTabs() {
-  document.querySelectorAll(".cat-pill").forEach(btn => {
+function populateCategories() {
+  const categoryTabsContainer = document.getElementById("categoryTabs");
+  if (!categoryTabsContainer) return;
+
+  // Extract distinct categories from libraryBooks
+  const distinctCategories = [...new Set(libraryBooks.map(b => (b.category || "").trim()).filter(Boolean))];
+
+  categoryTabsContainer.innerHTML = `
+    <button class="cat-pill px-3 py-1.5 rounded-md ${activeCategoryFilter === 'ALL' ? 'bg-polaris-primary-container text-white font-semibold' : 'hover:text-polaris-text-heading'} transition" data-category="ALL">All Materials</button>
+    ${distinctCategories.map(cat => `
+      <button class="cat-pill px-3 py-1.5 rounded-md ${activeCategoryFilter === cat ? 'bg-polaris-primary-container text-white font-semibold' : 'hover:text-polaris-text-heading'} transition" data-category="${cat}">
+        ${cat}
+      </button>
+    `).join("")}
+  `;
+
+  // Attach click listeners
+  categoryTabsContainer.querySelectorAll(".cat-pill").forEach(btn => {
     btn.addEventListener("click", (e) => {
-      document.querySelectorAll(".cat-pill").forEach(b => {
+      categoryTabsContainer.querySelectorAll(".cat-pill").forEach(b => {
         b.classList.remove("bg-polaris-primary-container", "text-white", "font-semibold");
         b.classList.add("hover:text-polaris-text-heading");
       });
@@ -107,6 +147,7 @@ function initCategoryTabs() {
   });
 }
 
+// --- FILTER CONTROLLER ---
 function applyFilters() {
   const searchInput = document.getElementById("globalSearchInput");
   const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
@@ -117,8 +158,8 @@ function applyFilters() {
 
     // 1. Category Filter Match
     if (activeCategoryFilter !== "ALL") {
-      const bCat = (book.category || "").toLowerCase();
-      if (!bCat.includes(activeCategoryFilter.toLowerCase())) return false;
+      const bCat = (book.category || "").trim().toLowerCase();
+      if (bCat !== activeCategoryFilter.toLowerCase()) return false;
     }
 
     // 2. Tag Filter Match
@@ -151,7 +192,7 @@ function applyFilters() {
   renderBookshelf(filtered);
 }
 
-// --- READING PROGRESS (USER-INITIATED ONLY) ---
+// --- READING PROGRESS (MANUAL CHECKBOX COUNTER) ---
 function getReadingProgress() {
   try {
     const saved = localStorage.getItem('polaris_reading_progress');
@@ -161,7 +202,7 @@ function getReadingProgress() {
   }
 }
 
-// Explicit Toggle: Only changes state when user clicks the checkbox
+// Checks = 1 (complete), Unchecks = 0 (incomplete)
 function togglePageCompletion(pageId, bookId, isChecked) {
   if (!pageId) return;
   const cleanPageId = String(pageId).trim();
@@ -184,9 +225,6 @@ function togglePageCompletion(pageId, bookId, isChecked) {
   }
 
   localStorage.setItem('polaris_reading_progress', JSON.stringify(progress));
-
-  // Refresh active reader metrics in place
-  updateReaderProgressWidgets(targetBookId);
 }
 
 function calculateBookProgress(bookId, totalPages) {
@@ -203,37 +241,16 @@ function calculateBookProgress(bookId, totalPages) {
   };
 }
 
-// Dynamically updates reader sidebar metrics without redrawing the whole page
-function updateReaderProgressWidgets(bookId) {
-  const pagesInBook = libraryPages.filter(p => String(p.book_id || "").trim() === bookId);
-  const stats = calculateBookProgress(bookId, pagesInBook.length);
-
-  const sidebarCount = document.getElementById("sidebarProgressCount");
-  const sidebarBar = document.getElementById("sidebarProgressBar");
-  const sidebarStatus = document.getElementById("sidebarProgressStatus");
-
-  if (sidebarCount) sidebarCount.innerText = `${stats.readPages} / ${pagesInBook.length} Completed`;
-  if (sidebarBar) sidebarBar.style.width = `${stats.percentage}%`;
-  if (sidebarStatus) {
-    sidebarStatus.innerText = stats.isCompleted 
-      ? "✓ Completed (100%)" 
-      : `${stats.percentage}% Completed`;
-  }
-}
-
-// --- BOOKSHELF RENDERER ---
+// --- BOOKSHELF RENDERER (PROGRESS BAR ONLY ON PLAYBOOK CARDS) ---
 function renderBookshelf(books) {
   const grid = document.getElementById("bookGrid");
   const shelfCount = document.getElementById("shelfCount");
   const shelfControls = document.getElementById("shelfControls");
   const ingestCallout = document.getElementById("ingestCallout");
-  const statRibbon = document.getElementById("statRibbon");
   const heroSection = document.querySelector(".hero-section");
 
-  // Restore homepage containers
   if (shelfControls) shelfControls.classList.remove("hidden");
   if (ingestCallout) ingestCallout.classList.remove("hidden");
-  if (statRibbon) statRibbon.classList.remove("hidden");
   if (heroSection) heroSection.classList.remove("hidden");
 
   if (shelfCount) {
@@ -258,17 +275,14 @@ function renderBookshelf(books) {
     const pageCount = bookPages.length;
     const firstPageId = pageCount > 0 ? String(bookPages[0].page_id).trim() : null;
 
-    // Accurate calculation based solely on user-checked pages
+    // Progress counter: checked pages / total pages
     const stats = calculateBookProgress(currentBookId, pageCount);
-
-    const allTags = [...new Set(bookPages.flatMap(p => (p.tags || "").split(",").map(t => t.trim()).filter(Boolean)))];
-    const tagPills = allTags.slice(0, 3).map(t => `<span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join(" ");
 
     const actionClick = firstPageId 
       ? `viewPage('${firstPageId}', '${currentBookId}')` 
       : `alert('No pages published for this playbook yet.')`;
 
-    // High-contrast, balanced progress bar
+    // Progress bar on playbook card
     const progressBlock = stats.isCompleted 
       ? `
         <div class="mt-4 pt-3 border-t border-polaris-border-subtle flex items-center justify-between">
@@ -304,7 +318,6 @@ function renderBookshelf(books) {
             ${book.title || "Untitled Book"}
           </h3>
           <p class="text-xs text-polaris-text-body line-clamp-2 leading-relaxed mb-4">${book.description || "No description provided."}</p>
-          <div class="flex flex-wrap gap-1.5 mb-2">${tagPills}</div>
         </div>
 
         <div>
@@ -321,29 +334,24 @@ function renderBookshelf(books) {
   }).join("");
 }
 
-// --- DEDICATED REDESIGNED PAGE READER VIEW ---
+// --- DEDICATED PAGE READER VIEW (NO SIDEBAR, TAGS INCLUDED) ---
 function viewPage(pageId, bookId) {
   const cleanPageId = String(pageId || "").trim();
   const page = libraryPages.find(p => String(p.page_id || "").trim() === cleanPageId);
   const activeBookId = String(bookId || (page ? page.book_id : "")).trim();
   const currentBook = libraryBooks.find(b => String(b.book_id).trim() === activeBookId);
 
-  // NOTE: We DO NOT automatically mark as read here anymore!
-  // Completion is purely driven by user checkbox toggle.
-
   const pagesInBook = libraryPages.filter(p => String(p.book_id || "").trim() === activeBookId);
   const container = document.getElementById("bookGrid");
   const shelfControls = document.getElementById("shelfControls");
   const ingestCallout = document.getElementById("ingestCallout");
-  const statRibbon = document.getElementById("statRibbon");
   const heroSection = document.querySelector(".hero-section");
 
   if (!page || !container) return;
 
-  // Clean reader mode: hide bookshelf search and ribbons
+  // Hide shelf elements in reader view
   if (shelfControls) shelfControls.classList.add("hidden");
   if (ingestCallout) ingestCallout.classList.add("hidden");
-  if (statRibbon) statRibbon.classList.add("hidden");
   if (heroSection) heroSection.classList.add("hidden");
 
   // Chapter tab switcher
@@ -360,19 +368,26 @@ function viewPage(pageId, bookId) {
     `;
   }).join("");
 
-  const stats = calculateBookProgress(activeBookId, pagesInBook.length);
+  // Checkbox completion state: 1 if completed, 0 if incomplete
   const isPageDone = (getReadingProgress()[activeBookId] || []).includes(cleanPageId);
 
-  // Review status badge calculation
-  const today = new Date();
-  const reviewDueDate = new Date(page.next_review_due);
-  const isStale = today > reviewDueDate || page.status === "PENDING_REVIEW";
-  const statusBadge = isStale 
-    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ PENDING REVIEW (Stale)</span>`
-    : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">✓ PUBLISHED ${page.version || 'v1.0'}</span>`;
+  // Status badge directly reflecting Polaris Database status value
+  const rawStatus = (page.status || "PUBLISHED").toUpperCase();
+  const statusBadge = rawStatus.includes("PENDING")
+    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ ${page.status}</span>`
+    : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">✓ ${page.status}</span>`;
+
+  // Render Tags specific to this page
+  const pageTags = (page.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+  const tagsHtml = pageTags.length > 0 
+    ? `<div class="flex flex-wrap items-center gap-1.5 pt-4 border-t border-slate-100">
+         <span class="text-xs font-semibold text-slate-500 mr-1">Tags:</span>
+         ${pageTags.map(t => `<span class="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join("")}
+       </div>`
+    : "";
 
   container.innerHTML = `
-    <div class="col-span-full max-w-7xl mx-auto w-full pt-2">
+    <div class="col-span-full max-w-4xl mx-auto w-full pt-2">
       
       <!-- Reader Header Bar -->
       <div class="bg-polaris-hero-dark text-white rounded-t-2xl px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800">
@@ -401,138 +416,69 @@ function viewPage(pageId, bookId) {
         </div>
       </div>
 
-      <!-- Split-Screen Reader Layout -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 bg-white border-x border-b border-polaris-border-subtle p-8 rounded-b-2xl shadow-elevation-1">
+      <!-- Reader Article (Full Width - Sidebar Removed) -->
+      <div class="bg-white border-x border-b border-polaris-border-subtle p-8 rounded-b-2xl shadow-elevation-1 space-y-6">
         
-        <!-- Left: Document Content (8 cols) -->
-        <article class="lg:col-span-8 space-y-6">
-          
-          <!-- Governance Header Box -->
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs text-polaris-text-body">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
-              ${statusBadge}
-              
-              <!-- Manual Completion Checkbox -->
-              <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-polaris-text-heading hover:text-polaris-primary-container select-none">
-                <input 
-                  type="checkbox" 
-                  id="completionToggle"
-                  ${isPageDone ? 'checked' : ''} 
-                  class="w-4 h-4 text-polaris-primary-container rounded cursor-pointer accent-indigo-600 focus:ring-indigo-500" 
-                  onchange="togglePageCompletion('${cleanPageId}', '${activeBookId}', this.checked)"
-                >
-                <span class="font-semibold text-xs">Mark as Completed</span>
-              </label>
-            </div>
+        <!-- Document Control Header -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs text-polaris-text-body">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+            ${statusBadge}
             
-            <div class="grid grid-cols-3 gap-4 font-mono text-[11px]">
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Document Owner</span>
-                <span class="font-bold text-polaris-text-heading">${page.document_owner || 'SME - Sales Ops'}</span>
-              </div>
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Next Audit Cycle</span>
-                <span class="font-bold text-polaris-text-heading">${page.next_review_due || 'Q1 2027'}</span>
-              </div>
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Approval Authority</span>
-                <span class="font-bold text-polaris-text-heading">VP Revenue &amp; RevOps</span>
-              </div>
-            </div>
+            <!-- Manual Checkbox: Checks = 1 (complete), Unchecks = 0 (incomplete) -->
+            <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-polaris-text-heading hover:text-polaris-primary-container select-none">
+              <input 
+                type="checkbox" 
+                id="completionToggle"
+                ${isPageDone ? 'checked' : ''} 
+                class="w-4 h-4 text-polaris-primary-container rounded cursor-pointer accent-indigo-600 focus:ring-indigo-500" 
+                onchange="togglePageCompletion('${cleanPageId}', '${activeBookId}', this.checked)"
+              >
+              <span class="font-semibold text-xs">Mark as Completed</span>
+            </label>
           </div>
-
-          <!-- Page Heading -->
-          <div>
-            <h1 class="font-display text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2">${page.title || 'Untitled Page'}</h1>
-            <p class="text-polaris-text-muted text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
-          </div>
-
-          <!-- Body Content Area -->
-          <div class="prose max-w-none text-polaris-text-body text-sm leading-relaxed whitespace-pre-wrap font-sans">
-            ${page.body_markdown || 'No content available for this section.'}
-          </div>
-
-          <!-- Talk-Track Script Box -->
-          <div class="bg-polaris-hero-dark text-slate-100 rounded-xl p-5 space-y-3 shadow-md mt-6 border border-slate-800">
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-mono text-emerald-400 uppercase tracking-wider font-bold">Talk-Track Script</span>
-              <button onclick="navigator.clipboard.writeText('Anchor back to calculated multi-year implementation savings.'); alert('Script copied!');" class="text-xs bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded transition cursor-pointer font-sans">
-                📋 Copy Script
-              </button>
-            </div>
-            <p class="text-xs font-mono text-slate-200 leading-relaxed bg-black/40 p-3.5 rounded-lg border border-white/10">
-              "When enterprise procurement leaders and line-of-business sponsors challenge standard SaaS license tiers, immediate pricing discounting forfeits deal leverage. Anchor back to calculated multi-year implementation savings."
-            </p>
-          </div>
-
-          <!-- Bottom Navigation -->
-          <div class="pt-8 border-t border-slate-100 flex items-center justify-between">
-            <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer">
-              &larr; Back to Catalog
-            </button>
-            <span class="text-xs text-polaris-text-muted font-mono">End of Page ${page.page_number || 1}</span>
-          </div>
-
-        </article>
-
-        <!-- Right: Sticky Sidebar (4 cols) -->
-        <aside class="lg:col-span-4 space-y-6">
           
-          <!-- In This Page TOC -->
-          <div class="bg-slate-50 border border-polaris-border-subtle rounded-xl p-5">
-            <div class="flex items-center justify-between mb-3">
-              <h4 class="font-display font-bold text-xs uppercase tracking-wider text-polaris-text-heading">In this page</h4>
-              <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono">3 sections</span>
+          <!-- Governance Fields Matching Database -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 font-mono text-[11px]">
+            <div>
+              <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Version</span>
+              <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
             </div>
-            <ul class="text-xs space-y-2 text-polaris-text-body">
-              <li class="hover:text-polaris-primary-container cursor-pointer font-medium">1. Strategic Overview</li>
-              <li class="hover:text-polaris-primary-container cursor-pointer font-medium">2. Approved Response Flow</li>
-              <li class="hover:text-polaris-primary-container cursor-pointer font-medium">3. Objection Handling Matrix</li>
-            </ul>
-          </div>
-
-          <!-- Playbook Progress Widget -->
-          <div class="bg-slate-50 border border-polaris-border-subtle rounded-xl p-5">
-            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-polaris-text-heading mb-2">Playbook Progress</h4>
-            <div class="flex justify-between text-xs text-polaris-text-muted mb-1.5">
-              <span>Overall Completion</span>
-              <span class="font-mono font-bold text-polaris-text-heading" id="sidebarProgressCount">${stats.readPages} / ${pagesInBook.length} Completed</span>
+            <div>
+              <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Document Owner</span>
+              <span class="font-bold text-polaris-text-heading">${page.document_owner || 'SME - Sales Ops'}</span>
             </div>
-            <div class="w-full bg-slate-200 rounded-full h-2 overflow-hidden mb-3 border border-slate-300">
-              <div id="sidebarProgressBar" class="bg-polaris-primary-container h-2 rounded-full transition-all duration-500" style="width: ${stats.percentage}%"></div>
+            <div>
+              <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
+              <span class="font-bold text-polaris-text-heading">${page.last_reviewed_date || 'N/A'}</span>
             </div>
-            <div class="text-[11px] text-polaris-text-muted flex items-center justify-between font-mono">
-              <span>Status</span>
-              <span id="sidebarProgressStatus" class="font-semibold text-polaris-text-heading">${stats.isCompleted ? '✓ Completed (100%)' : `${stats.percentage}% Completed`}</span>
+            <div>
+              <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Next Review Date</span>
+              <span class="font-bold text-polaris-text-heading">${page.next_review_due || 'N/A'}</span>
             </div>
           </div>
+        </div>
 
-          <!-- Associated Collateral -->
-          <div class="bg-slate-50 border border-polaris-border-subtle rounded-xl p-5">
-            <h4 class="font-display font-bold text-xs uppercase tracking-wider text-polaris-text-heading mb-3">Associated Collateral</h4>
-            <div class="space-y-2 text-xs">
-              <a href="#" class="block p-2 bg-white rounded border border-polaris-border-subtle text-polaris-text-body hover:border-polaris-primary-container transition font-medium">
-                📊 ROI &amp; Total Cost Calculator
-              </a>
-              <a href="#" class="block p-2 bg-white rounded border border-polaris-border-subtle text-polaris-text-body hover:border-polaris-primary-container transition font-medium">
-                🛡️ SOC2 &amp; Compliance Summary Sheet
-              </a>
-              <a href="#" class="block p-2 bg-white rounded border border-polaris-border-subtle text-polaris-text-body hover:border-polaris-primary-container transition font-medium">
-                📑 VP Finance Concession Matrix
-              </a>
-            </div>
-          </div>
+        <!-- Page Heading -->
+        <div>
+          <h1 class="font-display text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2">${page.title || 'Untitled Page'}</h1>
+          <p class="text-polaris-text-muted text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
+        </div>
 
-          <!-- Questions Widget -->
-          <div class="p-4 bg-polaris-primary-light border border-indigo-100 rounded-xl flex items-center gap-3">
-            <div class="w-8 h-8 rounded-full bg-polaris-primary-container text-white flex items-center justify-center font-bold text-xs">?</div>
-            <div class="text-xs">
-              <p class="font-display font-bold text-polaris-text-heading">Questions on the playbook?</p>
-              <p class="text-polaris-text-muted">Drop queries on Slack: <span class="font-mono text-polaris-primary-container">#sales-enablement</span></p>
-            </div>
-          </div>
+        <!-- Body Markdown Content -->
+        <div class="prose max-w-none text-polaris-text-body text-sm leading-relaxed whitespace-pre-wrap font-sans">
+          ${page.body_markdown || 'No content available for this section.'}
+        </div>
 
-        </aside>
+        <!-- Page Specific Tags -->
+        ${tagsHtml}
+
+        <!-- Bottom Return Navigation -->
+        <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
+          <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer">
+            &larr; Back to Bookshelf
+          </button>
+          <span class="text-xs text-polaris-text-muted font-mono">End of Page ${page.page_number || 1}</span>
+        </div>
 
       </div>
     </div>
@@ -542,9 +488,6 @@ function viewPage(pageId, bookId) {
 // Cleanly returns to bookshelf and restores hero & category controls
 function exitReaderView() {
   const heroSection = document.querySelector(".hero-section");
-  const statRibbon = document.getElementById("statRibbon");
   if (heroSection) heroSection.classList.remove("hidden");
-  if (statRibbon) statRibbon.classList.remove("hidden");
-
   renderBookshelf(libraryBooks);
 }
