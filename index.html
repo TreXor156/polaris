@@ -24,10 +24,6 @@
           colors: {
             polaris: {
               surface: '#F8F9FF',
-              'surface-dim': '#CBDBF5',
-              'on-surface': '#0B1C30',
-              'on-surface-variant': '#464555',
-              primary: '#3525CD',
               'primary-container': '#4F46E5',
               'primary-light': '#EEF2FF',
               'hero-dark': '#0F172A',
@@ -35,11 +31,9 @@
               'canvas-light': '#F8FAFC',
               'card-bg': '#FFFFFF',
               'border-subtle': '#E2E8F0',
-              'border-muted': '#CBD5E1',
               'text-heading': '#0F172A',
               'text-body': '#334155',
               'text-muted': '#64748B',
-              'success-emerald': '#059669',
               'progress-track': '#E2E8F0',
               accent: '#6366F1',
             }
@@ -54,12 +48,12 @@
     }
   </script>
 </head>
-<body class="bg-polaris-canvas-light text-polaris-text-body min-h-screen flex flex-col font-sans antialiased selection:bg-polaris-primary-light selection:text-polaris-primary-container">
+<body class="bg-polaris-canvas-light text-polaris-text-body min-h-screen flex flex-col font-sans antialiased">
 
   <!-- Top Navigation Header -->
   <header class="bg-white border-b border-polaris-border-subtle sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3 cursor-pointer group" onclick="renderBookshelf(libraryBooks)">
+      <div class="flex items-center space-x-3 cursor-pointer group" onclick="exitReaderView()">
         <div class="w-8 h-8 rounded-full bg-polaris-hero-dark flex items-center justify-center text-white text-sm shadow-sm transition group-hover:scale-105">
           🧭
         </div>
@@ -79,7 +73,7 @@
         <a href="#analytics" class="hover:text-polaris-text-heading transition">Analytics</a>
       </nav>
 
-      <!-- Action Button -->
+      <!-- Ingest Action Button -->
       <div class="flex items-center space-x-3">
         <a href="https://docs.google.com/forms" target="_blank" class="text-xs bg-polaris-primary-container hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-sm focus:ring-4 focus:ring-polaris-accent/35 transition inline-flex items-center gap-1.5">
           <span>+</span> Ingest Content
@@ -88,13 +82,9 @@
     </div>
   </header>
 
-  <!-- Hero & Global Search Section -->
-  <section class="hero-section bg-gradient-to-b from-polaris-hero-indigo to-polaris-hero-dark text-white pt-14 pb-20 px-4 sm:px-6 relative overflow-hidden">
+  <!-- Hero & Global Search Section (Pill and Metric Ribbon Removed) -->
+  <section class="hero-section bg-gradient-to-b from-polaris-hero-indigo to-polaris-hero-dark text-white pt-12 pb-16 px-4 sm:px-6 relative overflow-hidden">
     <div class="max-w-4xl mx-auto text-center space-y-4">
-      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-slate-200 text-[11px] font-medium tracking-wide border border-white/10 backdrop-blur-sm">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-        ZERO-LATENCY REPOSITORY • v1.4 LIVE
-      </div>
       
       <h1 class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
         Find Playbooks, Scripts &amp; Policies
@@ -104,67 +94,28 @@
       </p>
       
       <!-- Search Input Container -->
-      <div class="relative max-w-2xl mx-auto pt-3">
+      <div class="relative max-w-2xl mx-auto pt-2">
         <input 
           type="text" 
           id="globalSearchInput"
           placeholder="Search by topic, objection, keyword, or tag..." 
           class="w-full pl-12 pr-12 py-3.5 rounded-full bg-white text-polaris-text-heading placeholder-polaris-text-muted focus:outline-none focus:ring-4 focus:ring-polaris-accent/30 shadow-elevation-3 text-sm transition"
         >
-        <span class="absolute left-4 top-6 text-polaris-text-muted">🔍</span>
+        <span class="absolute left-4 top-5 text-polaris-text-muted">🔍</span>
       </div>
 
-      <!-- Quick Tag Filter Pills -->
-      <div class="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
+      <!-- Quick Tag Filter Pills (Dynamically Populated from Database) -->
+      <div id="dynamicTagsContainer" class="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
         <span class="text-slate-300 font-medium">Popular Tags:</span>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="pricing">#pricing</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="objection-handling">#objection-handling</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="compliance">#compliance</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="enterprise">#enterprise</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="pitch-deck">#pitch-deck</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="security-review">#security-review</button>
+        <span class="text-xs text-slate-400 font-mono">Loading tags...</span>
       </div>
     </div>
   </section>
 
-  <!-- Metric Quick-Stat Ribbon -->
-  <div id="statRibbon" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10 w-full">
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
-        <div class="p-2.5 rounded-lg bg-indigo-50 text-polaris-primary-container text-lg">📚</div>
-        <div>
-          <div class="font-display font-bold text-polaris-text-heading text-sm" id="statPlaybooks">4 Catalogued</div>
-          <div class="text-[11px] text-polaris-text-muted">Verified Core Playbooks</div>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
-        <div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 text-lg">⚡</div>
-        <div>
-          <div class="font-display font-bold text-polaris-text-heading text-sm">0ms Retrieval</div>
-          <div class="text-[11px] text-polaris-text-muted">Client-Side Memory Cache</div>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
-        <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 text-lg">🔄</div>
-        <div>
-          <div class="font-display font-bold text-polaris-text-heading text-sm">Synced Live</div>
-          <div class="text-[11px] text-polaris-text-muted">Google Sheets Pipeline</div>
-        </div>
-      </div>
-      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
-        <div class="p-2.5 rounded-lg bg-slate-100 text-slate-700 text-lg">🌐</div>
-        <div>
-          <div class="font-display font-bold text-polaris-text-heading text-sm">GitHub Pages</div>
-          <div class="text-[11px] text-polaris-text-muted">Zero-Cost Static Hosting</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
   <!-- Main Content Area -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full" id="bookshelf">
     
-    <!-- Category Filter Controls -->
+    <!-- Category Filter Controls (Dynamically Populated from Database) -->
     <div id="shelfControls" class="mb-8">
       <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-polaris-border-subtle">
         <div>
@@ -176,19 +127,16 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <!-- Category Tabs -->
-          <div class="inline-flex bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600 gap-1" id="categoryTabs">
+          <!-- Dynamic Category Tabs -->
+          <div class="inline-flex bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600 gap-1 flex-wrap" id="categoryTabs">
             <button class="cat-pill px-3 py-1.5 rounded-md bg-polaris-primary-container text-white font-semibold transition" data-category="ALL">All Materials</button>
-            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Sales Enablement">Sales Enablement</button>
-            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Compliance & Security">Compliance &amp; Security</button>
-            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Product Deep Dives">Product Deep Dives</button>
           </div>
           <span class="text-xs font-mono text-polaris-primary-container font-semibold" id="shelfCount">Loading catalog...</span>
         </div>
       </div>
     </div>
 
-    <!-- Dynamic 3-Column Grid -->
+    <!-- Dynamic 3-Column Grid for Bookshelf or Reader Container -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="bookGrid"></div>
 
     <!-- Bottom Ingestion Callout -->
