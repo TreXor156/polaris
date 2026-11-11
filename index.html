@@ -1,118 +1,217 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Polaris | Internal Knowledge Portal</title>
+  <title>Project Polaris | Enterprise Knowledge &amp; Enablement Engine</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Inter, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
           colors: {
-            brand: {
-              50: '#eef2ff',
-              600: '#4f46e5',
-              700: '#4338ca',
-              900: '#1e1b4b',
+            polaris: {
+              surface: '#F8F9FF',
+              'surface-dim': '#CBDBF5',
+              'on-surface': '#0B1C30',
+              'on-surface-variant': '#464555',
+              primary: '#3525CD',
+              'primary-container': '#4F46E5',
+              'primary-light': '#EEF2FF',
+              'hero-dark': '#0F172A',
+              'hero-indigo': '#1E1B4B',
+              'canvas-light': '#F8FAFC',
+              'card-bg': '#FFFFFF',
+              'border-subtle': '#E2E8F0',
+              'border-muted': '#CBD5E1',
+              'text-heading': '#0F172A',
+              'text-body': '#334155',
+              'text-muted': '#64748B',
+              'success-emerald': '#059669',
+              'progress-track': '#E2E8F0',
+              accent: '#6366F1',
             }
+          },
+          boxShadow: {
+            'elevation-1': '0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04)',
+            'elevation-2': '0 10px 15px -3px rgba(79, 70, 229, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.05)',
+            'elevation-3': '0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.08)',
           }
         }
       }
     }
   </script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+<body class="bg-polaris-canvas-light text-polaris-text-body min-h-screen flex flex-col font-sans antialiased selection:bg-polaris-primary-light selection:text-polaris-primary-container">
 
-  <!-- Navigation Header -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+  <!-- Top Navigation Header -->
+  <header class="bg-white border-b border-polaris-border-subtle sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <span class="text-2xl">🧭</span>
-        <div>
-          <span class="font-bold text-lg text-brand-900 tracking-tight">Project Polaris</span>
-          <span class="text-xs bg-brand-50 text-brand-700 px-2 py-0.5 rounded-full ml-2 border border-brand-200 font-medium">L&D Portal</span>
+      <div class="flex items-center space-x-3 cursor-pointer group" onclick="renderBookshelf(libraryBooks)">
+        <div class="w-8 h-8 rounded-full bg-polaris-hero-dark flex items-center justify-center text-white text-sm shadow-sm transition group-hover:scale-105">
+          🧭
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-display font-bold text-polaris-text-heading text-lg tracking-tight">Project Polaris</span>
+          <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-polaris-primary-light text-polaris-primary-container border border-indigo-100">
+            L&amp;D PORTAL
+          </span>
         </div>
       </div>
-      <div class="flex items-center space-x-4">
-        <a href="#bookshelf" class="text-sm font-medium text-slate-600 hover:text-brand-600 transition">Bookshelf</a>
-        <a href="https://docs.google.com/forms" target="_blank" class="text-xs bg-brand-600 hover:bg-brand-700 text-white font-semibold px-3 py-2 rounded-lg shadow-sm transition">
-          + Ingest Content
+      
+      <!-- Center Nav Links -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-polaris-text-muted">
+        <a href="#bookshelf" onclick="exitReaderView()" class="text-polaris-primary-container font-semibold border-b-2 border-polaris-primary-container pb-1">Bookshelf</a>
+        <a href="#bookshelf" onclick="exitReaderView()" class="hover:text-polaris-text-heading transition">Playbooks</a>
+        <a href="#compliance" class="hover:text-polaris-text-heading transition">Compliance</a>
+        <a href="#analytics" class="hover:text-polaris-text-heading transition">Analytics</a>
+      </nav>
+
+      <!-- Action Button -->
+      <div class="flex items-center space-x-3">
+        <a href="https://docs.google.com/forms" target="_blank" class="text-xs bg-polaris-primary-container hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-sm focus:ring-4 focus:ring-polaris-accent/35 transition inline-flex items-center gap-1.5">
+          <span>+</span> Ingest Content
         </a>
       </div>
     </div>
   </header>
 
   <!-- Hero & Global Search Section -->
-  <section class="bg-brand-900 text-white py-14 px-4 sm:px-6">
-    <div class="max-w-3xl mx-auto text-center space-y-4">
-      <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Find Playbooks, Scripts & Policies</h1>
-      <p class="text-slate-300 text-sm sm:text-base">Instant access to verified sales enablement guides and compliance procedures.</p>
+  <section class="hero-section bg-gradient-to-b from-polaris-hero-indigo to-polaris-hero-dark text-white pt-14 pb-20 px-4 sm:px-6 relative overflow-hidden">
+    <div class="max-w-4xl mx-auto text-center space-y-4">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-slate-200 text-[11px] font-medium tracking-wide border border-white/10 backdrop-blur-sm">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+        ZERO-LATENCY REPOSITORY • v1.4 LIVE
+      </div>
+      
+      <h1 class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+        Find Playbooks, Scripts &amp; Policies
+      </h1>
+      <p class="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
+        Instant access to verified sales enablement guides, battlecards, and compliance procedures engineered for high-velocity revenue teams.
+      </p>
       
       <!-- Search Input Container -->
-      <div class="relative pt-2">
+      <div class="relative max-w-2xl mx-auto pt-3">
         <input 
           type="text" 
           id="globalSearchInput"
           placeholder="Search by topic, objection, keyword, or tag..." 
-          class="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-4 focus:ring-brand-600/30 shadow-lg text-sm transition"
+          class="w-full pl-12 pr-12 py-3.5 rounded-full bg-white text-polaris-text-heading placeholder-polaris-text-muted focus:outline-none focus:ring-4 focus:ring-polaris-accent/30 shadow-elevation-3 text-sm transition"
         >
-        <span class="absolute left-4 top-5 text-slate-400">🔍</span>
+        <span class="absolute left-4 top-6 text-polaris-text-muted">🔍</span>
       </div>
 
-      <!-- Quick Tag Filter Pills (Mockup) -->
+      <!-- Quick Tag Filter Pills -->
       <div class="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
-        <span class="text-slate-400">Popular Tags:</span>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/10 transition cursor-pointer" data-tag="pricing">#pricing</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/10 transition cursor-pointer" data-tag="objection-handling">#objection-handling</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/10 transition cursor-pointer" data-tag="compliance">#compliance</button>
-        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 px-2.5 py-1 rounded-full border border-white/10 transition cursor-pointer" data-tag="enterprise">#enterprise</button>
+        <span class="text-slate-300 font-medium">Popular Tags:</span>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="pricing">#pricing</button>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="objection-handling">#objection-handling</button>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="compliance">#compliance</button>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="enterprise">#enterprise</button>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="pitch-deck">#pitch-deck</button>
+        <button type="button" class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" data-tag="security-review">#security-review</button>
       </div>
     </div>
   </section>
 
-  <!-- Main Content: The Bookshelf -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full" id="bookshelf">
-    <div class="flex items-center justify-between mb-6">
-      <div>
-        <h2 class="text-xl font-bold text-slate-900">Library Bookshelf</h2>
-        <p class="text-xs text-slate-500">Select a playbook or book to explore its verified pages.</p>
-      </div>
-      <span class="text-xs text-slate-400 font-mono" id="shelfCount">Loading catalog...</span>
-    </div>
-
-    <!-- Responsive Bookshelf Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="bookGrid">
-      
-      <!-- Static Demo Card 1: Books Structure -->
-      <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition flex flex-col justify-between">
+  <!-- Metric Quick-Stat Ribbon -->
+  <div id="statRibbon" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-10 w-full">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
+        <div class="p-2.5 rounded-lg bg-indigo-50 text-polaris-primary-container text-lg">📚</div>
         <div>
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Sales Enablement
-            </span>
-            <span class="text-xs font-mono text-slate-400">BK-SBN-01</span>
-          </div>
-          <h3 class="font-bold text-slate-900 text-lg hover:text-brand-600 cursor-pointer transition">
-            SaaS Onboarding & Sales Execution Guide
-          </h3>
-          <p class="text-slate-600 text-sm mt-2 line-clamp-2">
-            Master playbook for pitch scripts, objection handling, and pricing matrices.
-          </p>
-        </div>
-        <div class="pt-6 mt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-          <span>Owner: SME - Sales Ops</span>
-          <span class="font-medium text-brand-600 hover:underline cursor-pointer">View Pages &rarr;</span>
+          <div class="font-display font-bold text-polaris-text-heading text-sm" id="statPlaybooks">4 Catalogued</div>
+          <div class="text-[11px] text-polaris-text-muted">Verified Core Playbooks</div>
         </div>
       </div>
-
+      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
+        <div class="p-2.5 rounded-lg bg-blue-50 text-blue-600 text-lg">⚡</div>
+        <div>
+          <div class="font-display font-bold text-polaris-text-heading text-sm">0ms Retrieval</div>
+          <div class="text-[11px] text-polaris-text-muted">Client-Side Memory Cache</div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
+        <div class="p-2.5 rounded-lg bg-emerald-50 text-emerald-600 text-lg">🔄</div>
+        <div>
+          <div class="font-display font-bold text-polaris-text-heading text-sm">Synced Live</div>
+          <div class="text-[11px] text-polaris-text-muted">Google Sheets Pipeline</div>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-xl border border-polaris-border-subtle shadow-elevation-1 flex items-center space-x-3.5">
+        <div class="p-2.5 rounded-lg bg-slate-100 text-slate-700 text-lg">🌐</div>
+        <div>
+          <div class="font-display font-bold text-polaris-text-heading text-sm">GitHub Pages</div>
+          <div class="text-[11px] text-polaris-text-muted">Zero-Cost Static Hosting</div>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full" id="bookshelf">
+    
+    <!-- Category Filter Controls -->
+    <div id="shelfControls" class="mb-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-polaris-border-subtle">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] uppercase font-mono tracking-wider text-polaris-text-muted">Enterprise Repository</span>
+          </div>
+          <h2 class="font-display text-xl font-bold text-polaris-text-heading">Library Bookshelf</h2>
+          <p class="text-xs text-polaris-text-muted">Select a playbook to explore and complete its verified pages.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Category Tabs -->
+          <div class="inline-flex bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600 gap-1" id="categoryTabs">
+            <button class="cat-pill px-3 py-1.5 rounded-md bg-polaris-primary-container text-white font-semibold transition" data-category="ALL">All Materials</button>
+            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Sales Enablement">Sales Enablement</button>
+            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Compliance & Security">Compliance &amp; Security</button>
+            <button class="cat-pill px-3 py-1.5 rounded-md hover:text-polaris-text-heading transition" data-category="Product Deep Dives">Product Deep Dives</button>
+          </div>
+          <span class="text-xs font-mono text-polaris-primary-container font-semibold" id="shelfCount">Loading catalog...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dynamic 3-Column Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="bookGrid"></div>
+
+    <!-- Bottom Ingestion Callout -->
+    <div id="ingestCallout" class="mt-12 bg-white rounded-2xl border border-polaris-border-subtle p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-elevation-1">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-xl bg-polaris-primary-light border border-indigo-100 flex items-center justify-center text-xl text-polaris-primary-container">
+          📝
+        </div>
+        <div>
+          <h4 class="font-display font-bold text-polaris-text-heading text-sm">Need to document new objection handling or customer scripts?</h4>
+          <p class="text-xs text-polaris-text-muted mt-0.5 font-normal">Add content via Google Forms to sync directly into the Git repository workflow.</p>
+        </div>
+      </div>
+      <a href="https://docs.google.com/forms" target="_blank" class="text-xs font-semibold bg-polaris-primary-light text-polaris-primary-container hover:bg-indigo-100 border border-indigo-200 px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+        + Ingest Content ↗
+      </a>
+    </div>
+
   </main>
 
   <!-- Footer -->
-  <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400">
-    Project Polaris • Internal Enablement Platform • Powered by GitHub Pages & Google Sheets
+  <footer class="bg-white border-t border-polaris-border-subtle py-6 text-center text-xs text-polaris-text-muted font-normal">
+    Project Polaris • Internal Enablement Platform • Powered by GitHub Pages &amp; Google Sheets
   </footer>
 
   <script src="app.js"></script>
