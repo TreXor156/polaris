@@ -6,7 +6,7 @@
  * - Headless CMS via Google Sheets GViz JSON API
  * - In-Memory Client-Side State & Filtering
  * - Manual Checkbox-Driven Progress Tracking (localStorage)
- * - Dynamic Left-Sidebar Reader Navigation
+ * - Dynamic Left-Sidebar Reader Navigation & Markdown Parsing
  * ============================================================================
  */
 
@@ -68,7 +68,7 @@ async function fetchCatalog() {
   } catch (error) {
     console.error("[Polaris Error] Failed to fetch catalog:", error);
     if (shelfCount) shelfCount.innerText = "Error loading catalog";
-    
+
     const grid = document.getElementById("bookGrid");
     if (grid) {
       grid.innerHTML = `
@@ -88,7 +88,7 @@ function parseGvizResponse(rawText) {
   const jsonString = rawText.substring(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1);
   const data = JSON.parse(jsonString);
   const cols = data.table.cols.map(c => (c.label || c.id || "").trim().toLowerCase());
-  
+
   return data.table.rows.map(row => {
     let item = {};
     row.c.forEach((cell, i) => {
@@ -110,7 +110,7 @@ function populatePopularTags() {
   const tagsContainer = document.getElementById("dynamicTagsContainer");
   if (!tagsContainer) return;
 
-  const rawTags = libraryPages.flatMap(p => 
+  const rawTags = libraryPages.flatMap(p =>
     (p.tags || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
   );
   const distinctTags = [...new Set(rawTags)];
@@ -220,13 +220,13 @@ function applyFilters() {
     // 3. Search Query Match
     if (!query) return true;
 
-    const bookMatches = 
+    const bookMatches =
       (book.title || "").toLowerCase().includes(query) ||
       (book.description || "").toLowerCase().includes(query) ||
       (book.category || "").toLowerCase().includes(query) ||
       currentBookId.toLowerCase().includes(query);
 
-    const pagesMatch = relatedPages.some(p => 
+    const pagesMatch = relatedPages.some(p =>
       (p.title || "").toLowerCase().includes(query) ||
       (p.body_markdown || "").toLowerCase().includes(query) ||
       (p.tags || "").toLowerCase().includes(query)
@@ -299,7 +299,7 @@ function calculateBookProgress(bookId, totalPages) {
   const readList = progress[cleanBookId] || [];
   const count = Math.min(readList.length, totalPages);
   const percentage = totalPages > 0 ? Math.round((count / totalPages) * 100) : 0;
-  
+
   return {
     readPages: count,
     percentage: percentage,
@@ -360,7 +360,7 @@ function renderBookshelf(books) {
       ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
       : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
 
-    // Amendment 1: Progress Bar stays visible at 100% and turns green
+    // Progress Bar stays visible at 100% and turns green
     const progressLabelLeft = stats.isCompleted
       ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
       : `<span>Reading Progress</span>`;
@@ -384,7 +384,7 @@ function renderBookshelf(books) {
       </div>
     `;
 
-    // Amendment 2 & 3: Pill-shaped action button + disabled behavior when Inactive
+    // Pill-shaped action button + disabled behavior when Inactive
     const canOpen = isBookActive && Boolean(firstPageId);
     const actionClickAttr = canOpen ? `onclick="viewPage('${firstPageId}', '${currentBookId}')"` : "";
 
@@ -434,8 +434,39 @@ function renderBookshelf(books) {
 }
 
 // ----------------------------------------------------------------------------
-// 9. DEDICATED PAGE READER VIEW (LEFT SIDEBAR & RELOCATED UTILITIES)
+// 9. DEDICATED PAGE READER VIEW (LEFT SIDEBAR, MARKDOWN PARSER & UTILITIES)
 // ----------------------------------------------------------------------------
+
+/**
+ * Sanitizes cell indentation / stray outer markdown fences and parses Markdown to HTML.
+ * @param {string} rawMarkdown - Raw markdown string from Google Sheets.
+ * @returns {string} Rendered HTML string.
+ */
+function renderMarkdownContent(rawMarkdown) {
+  if (!rawMarkdown) {
+    return '<p class="text-polaris-text-muted italic">No content available for this section.</p>';
+  }
+
+  // Strip accidental outer ```markdown ... ``` wrappers or trailing ``` from sheet cells
+  let cleaned = String(rawMarkdown)
+    .replace(/^```(?:markdown|md)?\s*\n?/i, "")
+    .replace(/\n?```\s*$/g, "")
+    .trim();
+
+  // Remove uniform leading spaces so lines like "    # Heading" parse as headings, not code blocks
+  cleaned = cleaned.replace(/^[ \t]+(?=#|>|-|\*|\d+\.)/gm, "");
+
+  // Parse with marked.js if loaded, otherwise fallback to cleaned text
+  if (typeof marked !== "undefined") {
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    });
+    return marked.parse(cleaned);
+  }
+
+  return cleaned;
+}
 
 /**
  * Renders the reader view with a left chapter navigation sidebar and article content.
@@ -469,8 +500,8 @@ function viewPage(pageId, bookId) {
   // Vertical chapter directory navigation for left sidebar
   const sidebarLinks = pagesInBook.map((p, idx) => {
     const isCurrent = String(p.page_id || "").trim() === cleanPageId;
-    const activeClass = isCurrent 
-      ? "bg-polaris-primary-container text-white font-semibold shadow-sm" 
+    const activeClass = isCurrent
+      ? "bg-polaris-primary-container text-white font-semibold shadow-sm"
       : "bg-white text-polaris-text-body hover:bg-slate-100 border border-slate-200 font-medium";
     return `
       <button onclick="viewPage('${String(p.page_id).trim()}', '${activeBookId}')" 
@@ -504,7 +535,7 @@ function viewPage(pageId, bookId) {
 
   // Render tags associated with this page
   const pageTags = (page.tags || "").split(",").map(t => t.trim()).filter(Boolean);
-  const tagsHtml = pageTags.length > 0 
+  const tagsHtml = pageTags.length > 0
     ? `<div class="flex flex-wrap items-center gap-1.5">
          <span class="text-xs font-semibold text-slate-500 mr-1">Tags:</span>
          ${pageTags.map(t => `<span class="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join("")}
@@ -585,9 +616,14 @@ function viewPage(pageId, bookId) {
             <p class="text-polaris-text-muted text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
           </div>
 
-          <!-- Body Content Area -->
-          <div class="prose max-w-none text-polaris-text-body text-sm leading-relaxed whitespace-pre-wrap font-sans">
-            ${page.body_markdown || 'No content available for this section.'}
+          <!-- Body Content Area (Parsed Markdown) -->
+          <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
+                      prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
+                      prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
+                      prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
+                      prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
+                      prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
+            ${renderMarkdownContent(page.body_markdown)}
           </div>
 
           <!-- Utility Actions (Relocated above Tags) -->
@@ -599,7 +635,7 @@ function viewPage(pageId, bookId) {
               <button onclick="window.print()" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                 🖨️ Print / PDF
               </button>
-              <a href="https://docs.google.com/forms" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
+              <a href="[https://docs.google.com/forms](https://docs.google.com/forms)" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
                 ✏️ Suggest Edit
               </a>
             </div>
