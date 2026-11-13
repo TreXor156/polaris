@@ -1,16 +1,17 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Project Polaris | Enterprise Knowledge &amp; Enablement Engine</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Project Polaris • Internal Enablement Library</title>
 
   <!-- Google Fonts: Plus Jakarta Sans, Inter, JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS CDN with Typography Plugin -->
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
   <script>
     tailwind.config = {
@@ -48,102 +49,214 @@
     }
   </script>
 </head>
-<body class="bg-polaris-canvas-light text-polaris-text-body min-h-screen flex flex-col font-sans antialiased">
+<body class="bg-polaris-canvas-light text-polaris-text-body font-sans antialiased min-h-screen flex flex-col">
 
-  <!-- Top Navigation Header -->
-  <header class="bg-white border-b border-polaris-border-subtle sticky top-0 z-50">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3 cursor-pointer group" onclick="exitReaderView()">
-        <div class="w-8 h-8 rounded-full bg-polaris-hero-dark flex items-center justify-center text-white text-sm shadow-sm transition group-hover:scale-105">
-          🧭
+  <!-- ======================================================================= -->
+  <!-- 1. IDENTITY GATE MODAL (Blocks shelf until verified patron logs in)     -->
+  <!-- ======================================================================= -->
+  <div id="identityGateModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white border border-polaris-border-subtle rounded-2xl max-w-md w-full p-8 shadow-elevation-3">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl bg-polaris-primary-container text-white flex items-center justify-center font-display font-extrabold text-lg shadow-sm">
+          ✦
         </div>
-        <div class="flex items-center gap-2">
-          <span class="font-display font-bold text-polaris-text-heading text-lg tracking-tight">Project Polaris</span>
-          <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-polaris-primary-light text-polaris-primary-container border border-indigo-100">
-            L&amp;D PORTAL
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-polaris-primary-container font-bold">Patron Check-In</span>
+          <h2 class="font-display text-xl font-extrabold text-polaris-text-heading">Project Polaris</h2>
+        </div>
+      </div>
+
+      <p class="text-xs text-polaris-text-muted leading-relaxed mb-6">
+        Enter your registered work email to unlock your department playbooks, sync reading progress across devices, and issue your Patron Library Card.
+      </p>
+
+      <form id="loginForm" class="space-y-4">
+        <div>
+          <label for="loginEmailInput" class="block text-xs font-semibold text-polaris-text-heading mb-1.5">Work Email Address</label>
+          <input 
+            type="email" 
+            id="loginEmailInput" 
+            required 
+            placeholder="name@company.com"
+            class="w-full px-4 py-2.5 text-sm rounded-xl border border-polaris-border-subtle bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-polaris-primary-container transition"
+          />
+        </div>
+
+        <div id="loginErrorBox" class="hidden p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-medium"></div>
+
+        <button 
+          type="submit" 
+          id="loginSubmitBtn"
+          class="w-full py-2.5 px-4 rounded-xl bg-polaris-primary-container hover:bg-indigo-700 text-white font-semibold text-sm shadow-sm transition cursor-pointer flex items-center justify-center gap-2"
+        >
+          <span>Enter Library</span>
+          <span>&rarr;</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- 2. LIBRARY CARD SLIDE-OVER DRAWER (Gamification & Patron Pass)          -->
+  <!-- ======================================================================= -->
+  <div id="libraryCardBackdrop" onclick="closeLibraryCard()" class="hidden fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs transition-opacity"></div>
+  <aside id="libraryCardDrawer" class="hidden fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white border-l border-polaris-border-subtle shadow-elevation-3 flex flex-col justify-between overflow-y-auto">
+    <div class="p-6 space-y-6">
+      <!-- Drawer Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-polaris-border-subtle">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-widest text-polaris-primary-container font-bold">Official Credentials</span>
+          <h3 class="font-display text-lg font-extrabold text-polaris-text-heading">Patron Library Card</h3>
+        </div>
+        <button type="button" onclick="closeLibraryCard()" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition">
+          ✕
+        </button>
+      </div>
+
+      <!-- Vintage Modern Library Card -->
+      <div class="rounded-2xl bg-gradient-to-br from-polaris-hero-indigo via-polaris-hero-dark to-slate-900 text-white p-6 shadow-elevation-2 border border-indigo-900/60 relative overflow-hidden">
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <p class="text-[10px] font-mono uppercase tracking-widest text-indigo-300">Polaris Enablement Archive</p>
+            <h4 id="cardPatronName" class="font-display text-xl font-extrabold mt-1">Patron Name</h4>
+            <p id="cardPatronDept" class="text-xs text-slate-300 mt-0.5">Department • Role</p>
+          </div>
+          <span id="cardPatronId" class="font-mono text-[11px] bg-white/10 border border-white/15 px-2.5 py-1 rounded-md text-indigo-200">
+            USR-000
+          </span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 pt-4 border-t border-white/10 text-center">
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span id="cardPagesCount" class="block font-display text-lg font-extrabold text-white">0</span>
+            <span class="text-[10px] text-slate-300 uppercase tracking-wider">Pages Read</span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span id="cardBooksCount" class="block font-display text-lg font-extrabold text-emerald-400">0</span>
+            <span class="text-[10px] text-slate-300 uppercase tracking-wider">Completed</span>
+          </div>
+          <div class="bg-white/5 rounded-xl p-2.5">
+            <span id="cardTierLabel" class="block font-display text-xs font-bold text-amber-300 mt-1">Visitor</span>
+            <span class="text-[10px] text-slate-300 uppercase tracking-wider">Rank</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Badges Section -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h4 class="font-display text-xs font-bold uppercase tracking-wider text-slate-500">Earned Stamps & Milestones</h4>
+          <span id="syncStatusIndicator" class="text-[11px] font-mono text-emerald-600">● Synced to Sheets</span>
+        </div>
+        <div id="badgesContainer" class="space-y-2.5">
+          <!-- Populated dynamically by renderLibraryCard() -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Footer: Sign Out -->
+    <div class="p-6 border-t border-polaris-border-subtle bg-slate-50 flex items-center justify-between">
+      <span id="cardPatronEmail" class="text-xs font-mono text-polaris-text-muted truncate max-w-[220px]">user@company.com</span>
+      <button type="button" onclick="logoutUser()" class="text-xs font-semibold text-red-600 hover:text-red-800 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition cursor-pointer">
+        Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- ======================================================================= -->
+  <!-- 3. STICKY TOP NAVIGATION BAR                                            -->
+  <!-- ======================================================================= -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-polaris-border-subtle">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div onclick="exitReaderView()" class="w-9 h-9 rounded-xl bg-polaris-primary-container text-white flex items-center justify-center font-display font-extrabold text-base cursor-pointer shadow-sm">
+          ✦
+        </div>
+        <div>
+          <span onclick="exitReaderView()" class="font-display font-extrabold text-polaris-text-heading text-base tracking-tight cursor-pointer">
+            Project Polaris
+          </span>
+          <span id="navDeptPill" class="hidden sm:inline-block ml-2 text-[10px] font-mono font-semibold uppercase px-2 py-0.5 rounded-full bg-polaris-primary-light text-polaris-primary-container border border-indigo-100">
+            Enablement
           </span>
         </div>
       </div>
-      
-      <!-- Center Nav Links -->
-      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-polaris-text-muted">
-        <a href="#bookshelf" onclick="exitReaderView()" class="text-polaris-primary-container font-semibold border-b-2 border-polaris-primary-container pb-1">Bookshelf</a>
-        <a href="#bookshelf" onclick="exitReaderView()" class="hover:text-polaris-text-heading transition">Playbooks</a>
-        <a href="#compliance" class="hover:text-polaris-text-heading transition">Compliance</a>
-        <a href="#analytics" class="hover:text-polaris-text-heading transition">Analytics</a>
-      </nav>
 
-      <!-- Ingest Action Button -->
-      <div class="flex items-center space-x-3">
-        <a href="https://docs.google.com/forms" target="_blank" class="text-xs bg-polaris-primary-container hover:bg-indigo-700 text-white font-semibold px-4 py-2.5 rounded-lg shadow-sm focus:ring-4 focus:ring-polaris-accent/35 transition inline-flex items-center gap-1.5">
-          <span>+</span> Add Playbook
+      <div class="flex items-center gap-3">
+        <!-- Creator & Admin Only: Quick Ingest Button -->
+        <a 
+          href="https://docs.google.com/forms" 
+          target="_blank" 
+          data-role="CREATOR,ADMIN"
+          class="hidden text-xs font-semibold bg-polaris-primary-light text-polaris-primary-container hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2 rounded-lg transition whitespace-nowrap"
+        >
+          + Add Playbook ↗
         </a>
+
+        <!-- Patron Library Card Trigger -->
+        <button 
+          type="button" 
+          id="navLibraryCardBtn"
+          onclick="openLibraryCard()" 
+          class="inline-flex items-center gap-2 text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-lg shadow-sm transition cursor-pointer"
+        >
+          <span>🪪</span>
+          <span id="navUserBadgeText">Library Card</span>
+        </button>
       </div>
     </div>
   </header>
 
-  <!-- Hero & Global Search Section -->
-  <section class="hero-section bg-gradient-to-b from-polaris-hero-indigo to-polaris-hero-dark text-white pt-12 pb-16 px-4 sm:px-6 relative overflow-hidden">
-    <div class="max-w-4xl mx-auto text-center space-y-4">
-      <h1 class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
-        Find Playbooks, Scripts &amp; Policies
+  <!-- ======================================================================= -->
+  <!-- 4. HERO SEARCH BANNER                                                   -->
+  <!-- ======================================================================= -->
+  <section class="hero-section bg-gradient-to-br from-polaris-hero-indigo via-polaris-hero-dark to-slate-950 text-white py-14 px-4 border-b border-slate-800">
+    <div class="max-w-4xl mx-auto text-center space-y-5">
+      <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
+        Find Playbooks, Scripts & Policies
       </h1>
       <p class="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
-        Quickly find trusted sales guides, quick-reference cards, and step-by-step rules designed to help busy teams win more deals.
+        Instant access to verified sales enablement guides, battlecards, and compliance procedures engineered for high-velocity revenue teams.
       </p>
-      
-      <!-- Search Input Container -->
-      <div class="relative max-w-2xl mx-auto pt-2">
-        <input 
-          type="text" 
-          id="globalSearchInput"
-          placeholder="Search by topic, objection, keyword, or tag..." 
-          class="w-full pl-12 pr-12 py-3.5 rounded-full bg-white text-polaris-text-heading placeholder-polaris-text-muted focus:outline-none focus:ring-4 focus:ring-polaris-accent/30 shadow-elevation-3 text-sm transition"
-        >
-        <span class="absolute left-4 top-5 text-polaris-text-muted">🔍</span>
+
+      <!-- Search Input -->
+      <div class="max-w-2xl mx-auto pt-2">
+        <div class="relative">
+          <span class="absolute inset-y-0 left-4 flex items-center text-slate-400 text-sm">🔍</span>
+          <input 
+            type="text" 
+            id="globalSearchInput" 
+            placeholder="Search playbooks, talk tracks, objection handling, or #tags..." 
+            class="w-full pl-11 pr-4 py-3.5 rounded-xl bg-white text-polaris-text-heading placeholder-slate-400 text-sm shadow-elevation-3 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          />
+        </div>
       </div>
 
-      <!-- Quick Tag Filter Pills -->
+      <!-- Dynamic Popular Tags -->
       <div id="dynamicTagsContainer" class="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
         <span class="text-slate-300 font-medium">Popular Tags:</span>
-        <span class="text-xs text-slate-400 font-mono">Loading tags...</span>
       </div>
     </div>
   </section>
 
-  <!-- Main Content Area -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full" id="bookshelf">
+  <!-- ======================================================================= -->
+  <!-- 5. MAIN BOOKSHELF CATALOG                                               -->
+  <!-- ======================================================================= -->
+  <main id="bookshelf" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10">
     
-    <!-- Category Filter Controls -->
-    <div id="shelfControls" class="mb-8">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-polaris-border-subtle">
-        <div>
-          <div class="flex items-center gap-2">
-            <span class="text-[11px] uppercase font-mono tracking-wider text-polaris-text-muted">Training Library</span>
-          </div>
-          <h2 class="font-display text-xl font-bold text-polaris-text-heading">Library Bookshelf</h2>
-          <p class="text-xs text-polaris-text-muted">Select a playbook to explore and complete its verified pages.</p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Single Pill-Shaped Category Track -->
-          <div class="inline-flex items-center bg-slate-100 border border-slate-200/80 p-1 rounded-full text-xs gap-1 flex-wrap" id="categoryTabs">
-            <button class="cat-pill px-4 py-1.5 rounded-full bg-polaris-primary-container text-white font-bold shadow-sm transition" data-category="ALL">All Materials</button>
-          </div>
-
-          <!-- Pale Lavender/Blue Tinted Count Badge -->
-          <span class="text-xs font-mono text-polaris-primary-container font-semibold bg-indigo-50/90 border border-indigo-100 px-3.5 py-1.5 rounded-xl shadow-2xs" id="shelfCount">
-            Loading catalog...
-          </span>
-        </div>
+    <!-- Shelf Controls & Category Filter Tabs -->
+    <div id="shelfControls" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+      <div id="categoryTabs" class="flex flex-wrap items-center gap-1.5 bg-white p-1.5 rounded-full border border-polaris-border-subtle shadow-elevation-1">
+        <!-- Populated dynamically by populateCategories() -->
       </div>
+      <span class="text-xs text-polaris-text-muted font-mono" id="shelfCount">Loading catalog...</span>
     </div>
 
-    <!-- Dynamic 3-Column Grid for Bookshelf or Full Reader Container -->
+    <!-- Responsive 3-Column Bookshelf Grid -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="bookGrid"></div>
 
-    <!-- Bottom Ingestion Callout -->
-    <div id="ingestCallout" class="mt-12 bg-white rounded-2xl border border-polaris-border-subtle p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-elevation-1">
+    <!-- Bottom Ingestion Callout (Visible ONLY to Creator & Admin roles) -->
+    <div id="ingestCallout" data-role="CREATOR,ADMIN" class="hidden mt-12 bg-white rounded-2xl border border-polaris-border-subtle p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-elevation-1">
       <div class="flex items-center gap-4">
         <div class="w-12 h-12 rounded-xl bg-polaris-primary-light border border-indigo-100 flex items-center justify-center text-xl text-polaris-primary-container">
           📝
@@ -157,15 +270,13 @@
         + Add Playbook ↗
       </a>
     </div>
-
   </main>
 
   <!-- Footer -->
   <footer class="bg-white border-t border-polaris-border-subtle py-6 text-center text-xs text-polaris-text-muted font-normal">
-    Project Polaris • Internal Enablement Platform • Powered by GitHub Pages &amp; Google Sheets
+    Project Polaris • Internal Enablement Platform • Powered by GitHub Pages & Google Sheets
   </footer>
 
-  <!-- Marked.js Markdown Parser & App Logic -->
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="app.js"></script>
 </body>

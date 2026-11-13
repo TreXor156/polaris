@@ -4,16 +4,19 @@
  * ============================================================================
  * Architecture:
  * - Headless CMS via Google Sheets GViz JSON API
- * - In-Memory Client-Side State & Filtering
- * - Manual Checkbox-Driven Progress Tracking (localStorage)
- * - Dynamic Left-Sidebar Reader Navigation & Markdown Parsing
+ * - Apps Script Web App Sync (doGet Login & Progress / doPost Save)
+ * - Role-Based UI Visibility (Learner, Creator, Admin)
+ * - Department Filtering (Sales, Customer Support, T&Q, Ops)
+ * - Dynamic Library Card & Gamification Badges
  * ============================================================================
  */
 
 // ----------------------------------------------------------------------------
-// 1. CONFIGURATION & PUBLIC ENDPOINTS
+// 1. CONFIGURATION & ENDPOINTS
 // ----------------------------------------------------------------------------
 const SPREADSHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKp3lgAXmIfLP84hm6vveNnO_xIFGJwRkjKOZMJFWAsrdbHJQU6-v0pz3i73z0J9In/exec"; // <-- /exec URL HERE
+
 const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
 const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
 
@@ -24,20 +27,203 @@ let libraryBooks = [];
 let libraryPages = [];
 let activeTagFilter = null;
 let activeCategoryFilter = "ALL";
+let currentUser = null;
 
 // ----------------------------------------------------------------------------
-// 3. APPLICATION INITIALIZATION
+// 3. APPLICATION INITIALIZATION & IDENTITY GATE
 // ----------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
   const searchInput = document.getElementById("globalSearchInput");
   if (searchInput) {
     searchInput.addEventListener("input", () => applyFilters());
   }
-  fetchCatalog();
+
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) {
+    loginForm.addEventListener("submit", handleLoginSubmit);
+  }
+
+  checkAuthenticationState();
 });
 
+/**
+ * Checks if a verified user session exists in localStorage.
+ * Shows Identity Gate Modal if unauthenticated; otherwise boots catalog.
+ */
+function checkAuthenticationState() {
+  const gateModal = document.getElementById("identityGateModal");
+  try {
+    const savedUser = localStorage.getItem("polaris_user");
+    if (savedUser) {
+      currentUser = JSON.parse(savedUser);
+      if (gateModal) gateModal.classList.add("hidden");
+      applyRoleVisibility(currentUser.role);
+      updateNavPatronHeader();
+      fetchCatalog();
+      // Refresh progress silently from Sheets in background
+      syncUserFromBackend(currentUser.email, true);
+      return;
+    }
+  } catch (e) {
+    console.error("[Polaris Auth] Failed to parse saved user:", e);
+  }
+
+  // No active user -> show Identity Gate Modal
+  if (gateModal) gateModal.classList.remove("hidden");
+}
+
+/**
+ * Handles login form submission against Apps Script doGet endpoint.
+ */
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const emailInput = document.getElementById("loginEmailInput");
+  const errorBox = document.getElementById("loginErrorBox");
+  const submitBtn = document.getElementById("loginSubmitBtn");
+
+  const email = (emailInput ? emailInput.value : "").trim().toLowerCase();
+  if (!email) return;
+
+  if (errorBox) errorBox.classList.add("hidden");
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `<span>Verifying Patron...</span>`;
+  }
+
+  const result = await syncUserFromBackend(email, false);
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<span>Enter Library</span><span>&rarr;</span>`;
+  }
+
+  if (result.success) {
+    const gateModal = document.getElementById("identityGateModal");
+    if (gateModal) gateModal.classList.add("hidden");
+    applyRoleVisibility(currentUser.role);
+    updateNavPatronHeader();
+    fetchCatalog();
+  } else {
+    if (errorBox) {
+      errorBox.innerText = result.message || "Unable to verify email. Check with your Admin.";
+      errorBox.classList.remove("hidden");
+    }
+  }
+}
+
+/**
+ * Calls Apps Script doGet(e) to verify user and pull synced User_Progress.
+ */
+async function syncUserFromBackend(email, isSilent = false) {
+  if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) {
+    return {
+      success: false,
+      message: "WEB_APP_URL is not configured yet in app.js."
+    };
+  }
+
+  try {
+    const url = `${WEB_APP_URL}?action=login&email=${encodeURIComponent(email)}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.status === "success" && data.user) {
+      currentUser = {
+        user_id: String(data.user.user_id || "").trim(),
+        email: String(data.user.email || email).trim(),
+        full_name: String(data.user.full_name || "Patron").trim(),
+        role: String(data.user.role || "LEARNER").trim().toUpperCase(),
+        department: String(data.user.department || "General").trim()
+      };
+
+      localStorage.setItem("polaris_user", JSON.stringify(currentUser));
+
+      // Merge/overwrite local progress with authoritative Google Sheets progress
+      if (data.progress && typeof data.progress === "object") {
+        localStorage.setItem("polaris_reading_progress", JSON.stringify(data.progress));
+      }
+
+      if (isSilent && libraryBooks.length > 0) {
+        updateNavPatronHeader();
+        renderBookshelf(libraryBooks);
+      }
+
+      return { success: true };
+    } else {
+      return { success: false, message: data.message || "Patron not found or inactive." };
+    }
+  } catch (err) {
+    console.error("[Polaris Sync] Login/Sync error:", err);
+    return { success: false, message: "Network error connecting to Polaris backend." };
+  }
+}
+
+/**
+ * Signs out the current patron and re-opens the Identity Gate.
+ */
+function logoutUser() {
+  localStorage.removeItem("polaris_user");
+  localStorage.removeItem("polaris_reading_progress");
+  currentUser = null;
+  closeLibraryCard();
+  const gateModal = document.getElementById("identityGateModal");
+  if (gateModal) gateModal.classList.remove("hidden");
+}
+
 // ----------------------------------------------------------------------------
-// 4. DATA RETRIEVAL & GVIZ PARSER
+// 4. ROLE-BASED UI VISIBILITY (Learner, Creator, Admin)
+// ----------------------------------------------------------------------------
+
+/**
+ * Toggles visibility on elements carrying data-role="CREATOR,ADMIN" etc.
+ * Roles in sheet: Learner, Creator, Admin (normalized to uppercase).
+ */
+function applyRoleVisibility(role) {
+  const normalizedRole = String(role || "LEARNER").trim().toUpperCase();
+
+  document.querySelectorAll("[data-role]").forEach(el => {
+    const allowedRoles = el
+      .getAttribute("data-role")
+      .split(",")
+      .map(r => r.trim().toUpperCase());
+
+    if (allowedRoles.includes(normalizedRole)) {
+      el.classList.remove("hidden");
+    } else {
+      el.classList.add("hidden");
+    }
+  });
+}
+
+/**
+ * Formats role string nicely for display (e.g., "CREATOR" -> "Creator").
+ */
+function formatRoleLabel(role) {
+  const r = String(role || "LEARNER").trim().toLowerCase();
+  return r.charAt(0).toUpperCase() + r.slice(1);
+}
+
+/**
+ * Updates top navigation pills with current patron's department and rank.
+ */
+function updateNavPatronHeader() {
+  if (!currentUser) return;
+
+  const deptPill = document.getElementById("navDeptPill");
+  if (deptPill) {
+    deptPill.innerText = `${currentUser.department} • ${formatRoleLabel(currentUser.role)}`;
+  }
+
+  const badgeText = document.getElementById("navUserBadgeText");
+  if (badgeText) {
+    const firstName = currentUser.full_name.split(" ")[0];
+    const gamification = calculatePatronStats();
+    badgeText.innerText = `${firstName} • ${gamification.rankTitle}`;
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 5. DATA RETRIEVAL & GVIZ PARSER
 // ----------------------------------------------------------------------------
 
 /**
@@ -59,11 +245,9 @@ async function fetchCatalog() {
     libraryBooks = parseGvizResponse(booksText);
     libraryPages = parseGvizResponse(pagesText);
 
-    // Populate dynamic UI controls from retrieved records
     populatePopularTags();
     populateCategories();
-
-    // Render initial bookshelf grid
+    updateNavPatronHeader();
     renderBookshelf(libraryBooks);
   } catch (error) {
     console.error("[Polaris Error] Failed to fetch catalog:", error);
@@ -81,8 +265,6 @@ async function fetchCatalog() {
 
 /**
  * Parses raw Google Visualization (GViz) response text into clean JSON objects.
- * @param {string} rawText - Raw text containing Google Query callback.
- * @returns {Array<Object>} Normalized list of row records.
  */
 function parseGvizResponse(rawText) {
   const jsonString = rawText.substring(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1);
@@ -100,12 +282,9 @@ function parseGvizResponse(rawText) {
 }
 
 // ----------------------------------------------------------------------------
-// 5. DYNAMIC TAXONOMY & METADATA POPULATION
+// 6. DYNAMIC TAXONOMY & METADATA POPULATION
 // ----------------------------------------------------------------------------
 
-/**
- * Extracts distinct tags recorded in the Pages database tab and renders filter pills.
- */
 function populatePopularTags() {
   const tagsContainer = document.getElementById("dynamicTagsContainer");
   if (!tagsContainer) return;
@@ -131,7 +310,6 @@ function populatePopularTags() {
     `).join("")}
   `;
 
-  // Attach click events for toggling tag filter
   tagsContainer.querySelectorAll(".tag-filter-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const selectedTag = e.target.getAttribute("data-tag");
@@ -148,9 +326,6 @@ function populatePopularTags() {
   });
 }
 
-/**
- * Extracts distinct categories recorded in the Books database tab and renders category tabs.
- */
 function populateCategories() {
   const categoryTabsContainer = document.getElementById("categoryTabs");
   if (!categoryTabsContainer) return;
@@ -188,12 +363,9 @@ function populateCategories() {
 }
 
 // ----------------------------------------------------------------------------
-// 6. GLOBAL LIVE SEARCH & FILTER ENGINE
+// 7. GLOBAL LIVE SEARCH & FILTER ENGINE
 // ----------------------------------------------------------------------------
 
-/**
- * Evaluates search query, category, and tag filters against memory store.
- */
 function applyFilters() {
   const searchInput = document.getElementById("globalSearchInput");
   const query = (searchInput ? searchInput.value : "").trim().toLowerCase();
@@ -202,13 +374,11 @@ function applyFilters() {
     const currentBookId = String(book.book_id || "").trim();
     const relatedPages = libraryPages.filter(p => String(p.book_id || "").trim() === currentBookId);
 
-    // 1. Category Filter Match
     if (activeCategoryFilter !== "ALL") {
       const bCat = (book.category || "").trim().toLowerCase();
       if (bCat !== activeCategoryFilter.toLowerCase()) return false;
     }
 
-    // 2. Tag Filter Match
     if (activeTagFilter) {
       const matchesTag = relatedPages.some(p => {
         const pageTags = (p.tags || "").toLowerCase().split(",").map(t => t.trim());
@@ -217,7 +387,6 @@ function applyFilters() {
       if (!matchesTag) return false;
     }
 
-    // 3. Search Query Match
     if (!query) return true;
 
     const bookMatches =
@@ -239,16 +408,12 @@ function applyFilters() {
 }
 
 // ----------------------------------------------------------------------------
-// 7. MANUAL COMPLETION TRACKING & GAMIFICATION
+// 8. MANUAL COMPLETION TRACKING & CROSS-DEVICE SHEETS SYNC
 // ----------------------------------------------------------------------------
 
-/**
- * Retrieves the current reading progress state from localStorage.
- * @returns {Object} Stored progress mapped by book_id.
- */
 function getReadingProgress() {
   try {
-    const saved = localStorage.getItem('polaris_reading_progress');
+    const saved = localStorage.getItem("polaris_reading_progress");
     return saved ? JSON.parse(saved) : {};
   } catch (e) {
     console.error("[Polaris Progress] Error reading localStorage:", e);
@@ -257,11 +422,7 @@ function getReadingProgress() {
 }
 
 /**
- * Updates page completion state. Operates strictly as a counter:
- * Checked = 1 (completed), Unchecked = 0 (incomplete).
- * @param {string} pageId - Target page identifier.
- * @param {string} bookId - Parent book identifier.
- * @param {boolean} isChecked - Checkbox state.
+ * Updates page completion locally AND syncs to User_Progress tab via doPost(e).
  */
 function togglePageCompletion(pageId, bookId, isChecked) {
   if (!pageId) return;
@@ -284,15 +445,55 @@ function togglePageCompletion(pageId, bookId, isChecked) {
     progress[targetBookId] = progress[targetBookId].filter(id => id !== cleanPageId);
   }
 
-  localStorage.setItem('polaris_reading_progress', JSON.stringify(progress));
+  localStorage.setItem("polaris_reading_progress", JSON.stringify(progress));
+  updateNavPatronHeader();
+
+  // Background sync to Google Sheets User_Progress
+  const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === targetBookId);
+  syncProgressToSheets(targetBookId, progress[targetBookId], bookPages.length);
 }
 
 /**
- * Calculates current progress statistics for a given book.
- * @param {string} bookId - Target book identifier.
- * @param {number} totalPages - Total verified pages in the book.
- * @returns {Object} Progress counts and percentage.
+ * Sends updated pages_read array for a book to Apps Script doPost(e).
  */
+async function syncProgressToSheets(bookId, pagesReadArray, totalPages) {
+  if (!currentUser || !currentUser.user_id) return;
+  if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) return;
+
+  const syncIndicator = document.getElementById("syncStatusIndicator");
+  if (syncIndicator) {
+    syncIndicator.innerText = "↻ Syncing...";
+    syncIndicator.className = "text-[11px] font-mono text-amber-600";
+  }
+
+  try {
+    const response = await fetch(WEB_APP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify({
+        user_id: currentUser.user_id,
+        book_id: bookId,
+        pages_read: pagesReadArray,
+        total_pages: totalPages
+      })
+    });
+
+    const resData = await response.json();
+    if (resData.status === "success" && syncIndicator) {
+      syncIndicator.innerText = "● Synced to Sheets";
+      syncIndicator.className = "text-[11px] font-mono text-emerald-600";
+    }
+  } catch (err) {
+    console.error("[Polaris Sync] Failed to write progress to Sheets:", err);
+    if (syncIndicator) {
+      syncIndicator.innerText = "⚠️ Offline (Saved Locally)";
+      syncIndicator.className = "text-[11px] font-mono text-red-600";
+    }
+  }
+}
+
 function calculateBookProgress(bookId, totalPages) {
   const cleanBookId = String(bookId || "").trim();
   const progress = getReadingProgress();
@@ -308,13 +509,146 @@ function calculateBookProgress(bookId, totalPages) {
 }
 
 // ----------------------------------------------------------------------------
-// 8. BOOKSHELF RENDERER
+// 9. LIBRARY CARD DRAWER & DYNAMIC BADGE ENGINE
 // ----------------------------------------------------------------------------
 
-/**
- * Renders the catalog grid. Book IDs and internal POC are hidden from display.
- * @param {Array<Object>} books - List of books to render.
- */
+function calculatePatronStats() {
+  const progress = getReadingProgress();
+  let totalPagesRead = 0;
+  let completedBooksCount = 0;
+
+  const activeBooks = libraryBooks.filter(
+    b => String(b.status || "ACTIVE").trim().toUpperCase() === "ACTIVE"
+  );
+
+  activeBooks.forEach(book => {
+    const bId = String(book.book_id || "").trim();
+    const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === bId);
+    const readPages = (progress[bId] || []).filter(pid =>
+      bookPages.some(bp => String(bp.page_id).trim() === String(pid).trim())
+    );
+
+    totalPagesRead += readPages.length;
+    if (bookPages.length > 0 && readPages.length >= bookPages.length) {
+      completedBooksCount += 1;
+    }
+  });
+
+  // Determine highest unlocked rank
+  let rankTitle = "New Patron";
+  if (activeBooks.length > 0 && completedBooksCount >= activeBooks.length) {
+    rankTitle = "Master Archivist";
+  } else if (completedBooksCount >= 3) {
+    rankTitle = "Subject Scholar";
+  } else if (completedBooksCount >= 1) {
+    rankTitle = "Avid Reader";
+  } else if (totalPagesRead >= 1) {
+    rankTitle = "Novice Reader";
+  }
+
+  const badges = [
+    {
+      id: "novice",
+      icon: "📖",
+      title: "Novice Reader",
+      desc: "Complete at least 1 playbook page.",
+      unlocked: totalPagesRead >= 1
+    },
+    {
+      id: "avid",
+      icon: "🏅",
+      title: "Avid Reader",
+      desc: "Complete 100% of any 1 playbook (Gold Stamp).",
+      unlocked: completedBooksCount >= 1
+    },
+    {
+      id: "scholar",
+      icon: "🎓",
+      title: "Subject Scholar",
+      desc: "Complete 3 or more active playbooks.",
+      unlocked: completedBooksCount >= 3
+    },
+    {
+      id: "archivist",
+      icon: "🏛️",
+      title: "Master Archivist",
+      desc: "Complete 100% of all active playbooks in the library.",
+      unlocked: activeBooks.length > 0 && completedBooksCount >= activeBooks.length
+    }
+  ];
+
+  // Role-specific bonus badge for Creators & Admins
+  const userRole = currentUser ? currentUser.role : "LEARNER";
+  if (userRole === "CREATOR" || userRole === "ADMIN") {
+    badges.push({
+      id: "curator",
+      icon: "✍️",
+      title: userRole === "ADMIN" ? "Library Steward (Admin)" : "Playbook Author (Creator)",
+      desc: "Authorized to publish and maintain enablement content.",
+      unlocked: true
+    });
+  }
+
+  return {
+    totalPagesRead,
+    completedBooksCount,
+    totalActiveBooks: activeBooks.length,
+    rankTitle,
+    badges
+  };
+}
+
+function openLibraryCard() {
+  if (!currentUser) return;
+
+  const stats = calculatePatronStats();
+
+  document.getElementById("cardPatronName").innerText = currentUser.full_name;
+  document.getElementById("cardPatronDept").innerText = `${currentUser.department} • ${formatRoleLabel(currentUser.role)}`;
+  document.getElementById("cardPatronId").innerText = currentUser.user_id;
+  document.getElementById("cardPatronEmail").innerText = currentUser.email;
+  document.getElementById("cardPagesCount").innerText = stats.totalPagesRead;
+  document.getElementById("cardBooksCount").innerText = `${stats.completedBooksCount}/${stats.totalActiveBooks}`;
+  document.getElementById("cardTierLabel").innerText = stats.rankTitle;
+
+  const badgesContainer = document.getElementById("badgesContainer");
+  badgesContainer.innerHTML = stats.badges.map(b => {
+    const cardStyle = b.unlocked
+      ? "bg-emerald-50/70 border-emerald-200 text-polaris-text-heading"
+      : "bg-slate-50 border-slate-200 text-slate-400 opacity-70";
+    const statusPill = b.unlocked
+      ? `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Unlocked</span>`
+      : `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Locked</span>`;
+
+    return `
+      <div class="p-3.5 rounded-xl border ${cardStyle} flex items-center justify-between gap-3 transition">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg shadow-2xs">
+            ${b.unlocked ? b.icon : "🔒"}
+          </div>
+          <div>
+            <h5 class="font-display text-xs font-bold">${b.title}</h5>
+            <p class="text-[11px] leading-snug mt-0.5">${b.desc}</p>
+          </div>
+        </div>
+        ${statusPill}
+      </div>
+    `;
+  }).join("");
+
+  document.getElementById("libraryCardBackdrop").classList.remove("hidden");
+  document.getElementById("libraryCardDrawer").classList.remove("hidden");
+}
+
+function closeLibraryCard() {
+  document.getElementById("libraryCardBackdrop").classList.add("hidden");
+  document.getElementById("libraryCardDrawer").classList.add("hidden");
+}
+
+// ----------------------------------------------------------------------------
+// 10. BOOKSHELF RENDERER
+// ----------------------------------------------------------------------------
+
 function renderBookshelf(books) {
   const grid = document.getElementById("bookGrid");
   const shelfCount = document.getElementById("shelfCount");
@@ -323,11 +657,11 @@ function renderBookshelf(books) {
   const heroSection = document.querySelector(".hero-section");
 
   if (shelfControls) shelfControls.classList.remove("hidden");
-  if (ingestCallout) ingestCallout.classList.remove("hidden");
   if (heroSection) heroSection.classList.remove("hidden");
+  if (currentUser) applyRoleVisibility(currentUser.role);
 
   if (shelfCount) {
-    shelfCount.innerText = `${books.length} Playbook${books.length === 1 ? '' : 's'} Available`;
+    shelfCount.innerText = `${books.length} Playbook${books.length === 1 ? "" : "s"} Available`;
   }
 
   if (!grid) return;
@@ -348,19 +682,15 @@ function renderBookshelf(books) {
     const pageCount = bookPages.length;
     const firstPageId = pageCount > 0 ? String(bookPages[0].page_id).trim() : null;
 
-    // Progress stats
     const stats = calculateBookProgress(currentBookId, pageCount);
 
-    // Status evaluation
     const rawBookStatus = (book.status || "ACTIVE").trim().toUpperCase();
     const isBookActive = rawBookStatus === "ACTIVE";
 
-    // Left Status Pill
     const statusPill = isBookActive
       ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
       : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
 
-    // Progress Bar stays visible at 100% and turns green
     const progressLabelLeft = stats.isCompleted
       ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
       : `<span>Reading Progress</span>`;
@@ -384,7 +714,6 @@ function renderBookshelf(books) {
       </div>
     `;
 
-    // Pill-shaped action button + disabled behavior when Inactive
     const canOpen = isBookActive && Boolean(firstPageId);
     const actionClickAttr = canOpen ? `onclick="viewPage('${firstPageId}', '${currentBookId}')"` : "";
 
@@ -434,29 +763,21 @@ function renderBookshelf(books) {
 }
 
 // ----------------------------------------------------------------------------
-// 9. DEDICATED PAGE READER VIEW (LEFT SIDEBAR, MARKDOWN PARSER & UTILITIES)
+// 11. DEDICATED PAGE READER VIEW
 // ----------------------------------------------------------------------------
 
-/**
- * Sanitizes cell indentation / stray outer markdown fences and parses Markdown to HTML.
- * @param {string} rawMarkdown - Raw markdown string from Google Sheets.
- * @returns {string} Rendered HTML string.
- */
 function renderMarkdownContent(rawMarkdown) {
   if (!rawMarkdown) {
     return '<p class="text-polaris-text-muted italic">No content available for this section.</p>';
   }
 
-  // Strip accidental outer ```markdown ... ``` wrappers or trailing ``` from sheet cells
   let cleaned = String(rawMarkdown)
     .replace(/^```(?:markdown|md)?\s*\n?/i, "")
     .replace(/\n?```\s*$/g, "")
     .trim();
 
-  // Remove uniform leading spaces so lines like "    # Heading" parse as headings, not code blocks
   cleaned = cleaned.replace(/^[ \t]+(?=#|>|-|\*|\d+\.)/gm, "");
 
-  // Parse with marked.js if loaded, otherwise fallback to cleaned text
   if (typeof marked !== "undefined") {
     marked.setOptions({
       breaks: true,
@@ -468,18 +789,12 @@ function renderMarkdownContent(rawMarkdown) {
   return cleaned;
 }
 
-/**
- * Renders the reader view with a left chapter navigation sidebar and article content.
- * @param {string} pageId - Active page identifier.
- * @param {string} bookId - Parent playbook identifier.
- */
 function viewPage(pageId, bookId) {
   const cleanPageId = String(pageId || "").trim();
   const page = libraryPages.find(p => String(p.page_id || "").trim() === cleanPageId);
   const activeBookId = String(bookId || (page ? page.book_id : "")).trim();
   const currentBook = libraryBooks.find(b => String(b.book_id || "").trim() === activeBookId);
 
-  // Prevent opening or reviewing Inactive playbooks
   if (currentBook && String(currentBook.status || "ACTIVE").trim().toUpperCase() !== "ACTIVE") {
     return;
   }
@@ -492,12 +807,10 @@ function viewPage(pageId, bookId) {
 
   if (!page || !container) return;
 
-  // Hide bookshelf discovery controls in reader mode
   if (shelfControls) shelfControls.classList.add("hidden");
   if (ingestCallout) ingestCallout.classList.add("hidden");
   if (heroSection) heroSection.classList.add("hidden");
 
-  // Vertical chapter directory navigation for left sidebar
   const sidebarLinks = pagesInBook.map((p, idx) => {
     const isCurrent = String(p.page_id || "").trim() === cleanPageId;
     const activeClass = isCurrent
@@ -512,16 +825,13 @@ function viewPage(pageId, bookId) {
     `;
   }).join("");
 
-  // Checkbox state: 1 if completed, 0 if incomplete
   const isPageDone = (getReadingProgress()[activeBookId] || []).includes(cleanPageId);
 
-  // Status badge matching database value
   const rawStatus = (page.status || "PUBLISHED").toUpperCase();
   const statusBadge = rawStatus.includes("PENDING")
     ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ ${page.status}</span>`
     : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">✓ ${page.status}</span>`;
 
-  // Standardized review dates (calculates +90 days if next review date is missing)
   let lastReviewed = page.last_reviewed_date || "N/A";
   let nextReview = page.next_review_due;
 
@@ -533,13 +843,21 @@ function viewPage(pageId, bookId) {
     nextReview = baseDate.toISOString().split("T")[0];
   }
 
-  // Render tags associated with this page
   const pageTags = (page.tags || "").split(",").map(t => t.trim()).filter(Boolean);
   const tagsHtml = pageTags.length > 0
     ? `<div class="flex flex-wrap items-center gap-1.5">
          <span class="text-xs font-semibold text-slate-500 mr-1">Tags:</span>
          ${pageTags.map(t => `<span class="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join("")}
        </div>`
+    : "";
+
+  // Role-based Suggest Edit visibility (Creator & Admin only)
+  const userRole = currentUser ? currentUser.role : "LEARNER";
+  const canEdit = userRole === "CREATOR" || userRole === "ADMIN";
+  const suggestEditHtml = canEdit
+    ? `<a href="https://docs.google.com/forms" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
+         ✏️ Suggest Edit
+       </a>`
     : "";
 
   container.innerHTML = `
@@ -559,7 +877,7 @@ function viewPage(pageId, bookId) {
         </div>
       </div>
 
-      <!-- Split Screen Layout: Left Sidebar Navigation (3 cols) + Main Article Content (9 cols) -->
+      <!-- Split Screen Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 bg-white border-x border-b border-polaris-border-subtle rounded-b-2xl shadow-elevation-1 min-h-[600px]">
         
         <!-- Left Sidebar: Chapter Navigation -->
@@ -580,7 +898,7 @@ function viewPage(pageId, bookId) {
             <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
               ${statusBadge}
               
-              <!-- Checkbox Counter: Checked = 1 (complete), Unchecked = 0 (incomplete) -->
+              <!-- Checkbox Counter -->
               <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-polaris-text-heading hover:text-polaris-primary-container select-none">
                 <input 
                   type="checkbox" 
@@ -635,9 +953,7 @@ function viewPage(pageId, bookId) {
               <button onclick="window.print()" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                 🖨️ Print / PDF
               </button>
-              <a href="[https://docs.google.com/forms](https://docs.google.com/forms)" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
-                ✏️ Suggest Edit
-              </a>
+              ${suggestEditHtml}
             </div>
 
             <!-- Page Tags -->
@@ -660,9 +976,6 @@ function viewPage(pageId, bookId) {
   `;
 }
 
-/**
- * Returns from the reader view to the main bookshelf catalog.
- */
 function exitReaderView() {
   const heroSection = document.querySelector(".hero-section");
   if (heroSection) heroSection.classList.remove("hidden");
@@ -670,9 +983,12 @@ function exitReaderView() {
 }
 
 // ----------------------------------------------------------------------------
-// 10. GLOBAL EXPORTS (Ensures inline HTML attributes can access functions)
+// 12. GLOBAL EXPORTS
 // ----------------------------------------------------------------------------
 window.viewPage = viewPage;
 window.exitReaderView = exitReaderView;
 window.togglePageCompletion = togglePageCompletion;
 window.renderBookshelf = renderBookshelf;
+window.openLibraryCard = openLibraryCard;
+window.closeLibraryCard = closeLibraryCard;
+window.logoutUser = logoutUser;
