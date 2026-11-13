@@ -157,12 +157,15 @@ function populateCategories() {
 
   const distinctCategories = [...new Set(libraryBooks.map(b => (b.category || "").trim()).filter(Boolean))];
 
+  const activePillClasses = "bg-polaris-primary-container text-white font-bold shadow-sm";
+  const inactivePillClasses = "text-slate-700 font-normal hover:text-slate-900";
+
   categoryTabsContainer.innerHTML = `
-    <button class="cat-pill px-3 py-1.5 rounded-md ${activeCategoryFilter === 'ALL' ? 'bg-polaris-primary-container text-white font-semibold' : 'hover:text-polaris-text-heading'} transition" data-category="ALL">
+    <button type="button" class="cat-pill px-4 py-1.5 rounded-full transition cursor-pointer ${activeCategoryFilter === 'ALL' ? activePillClasses : inactivePillClasses}" data-category="ALL">
       All Materials
     </button>
     ${distinctCategories.map(cat => `
-      <button class="cat-pill px-3 py-1.5 rounded-md ${activeCategoryFilter === cat ? 'bg-polaris-primary-container text-white font-semibold' : 'hover:text-polaris-text-heading'} transition" data-category="${cat}">
+      <button type="button" class="cat-pill px-4 py-1.5 rounded-full transition cursor-pointer ${activeCategoryFilter === cat ? activePillClasses : inactivePillClasses}" data-category="${cat}">
         ${cat}
       </button>
     `).join("")}
@@ -171,13 +174,14 @@ function populateCategories() {
   categoryTabsContainer.querySelectorAll(".cat-pill").forEach(btn => {
     btn.addEventListener("click", (e) => {
       categoryTabsContainer.querySelectorAll(".cat-pill").forEach(b => {
-        b.classList.remove("bg-polaris-primary-container", "text-white", "font-semibold");
-        b.classList.add("hover:text-polaris-text-heading");
+        b.classList.remove("bg-polaris-primary-container", "text-white", "font-bold", "shadow-sm");
+        b.classList.add("text-slate-700", "font-normal", "hover:text-slate-900");
       });
 
-      e.target.classList.add("bg-polaris-primary-container", "text-white", "font-semibold");
-      e.target.classList.remove("hover:text-polaris-text-heading");
-      activeCategoryFilter = e.target.getAttribute("data-category");
+      e.currentTarget.classList.remove("text-slate-700", "font-normal", "hover:text-slate-900");
+      e.currentTarget.classList.add("bg-polaris-primary-container", "text-white", "font-bold", "shadow-sm");
+
+      activeCategoryFilter = e.currentTarget.getAttribute("data-category");
       applyFilters();
     });
   });
@@ -318,7 +322,6 @@ function renderBookshelf(books) {
   const ingestCallout = document.getElementById("ingestCallout");
   const heroSection = document.querySelector(".hero-section");
 
-  // Restore main catalog layout elements
   if (shelfControls) shelfControls.classList.remove("hidden");
   if (ingestCallout) ingestCallout.classList.remove("hidden");
   if (heroSection) heroSection.classList.remove("hidden");
@@ -345,64 +348,84 @@ function renderBookshelf(books) {
     const pageCount = bookPages.length;
     const firstPageId = pageCount > 0 ? String(bookPages[0].page_id).trim() : null;
 
-    // Progress counter reflecting completed pages
+    // Progress stats
     const stats = calculateBookProgress(currentBookId, pageCount);
 
-    const actionClick = firstPageId 
-      ? `viewPage('${firstPageId}', '${currentBookId}')` 
-      : `alert('No pages published for this playbook yet.')`;
-
-    // Book status pill (replaces internal POC)
-    const rawBookStatus = (book.status || "ACTIVE").toUpperCase();
+    // Status evaluation
+    const rawBookStatus = (book.status || "ACTIVE").trim().toUpperCase();
     const isBookActive = rawBookStatus === "ACTIVE";
-    const statusPill = isBookActive 
-      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
-      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
 
-    // Dynamic progress bar reflecting manual completion
-    const progressBlock = stats.isCompleted 
-      ? `
-        <div class="mt-4 pt-3 border-t border-polaris-border-subtle flex items-center justify-between">
-          <span class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
-            ✓ Complete
-          </span>
-          <span class="text-xs font-mono font-bold text-emerald-700">${pageCount} of ${pageCount} Pages (100%)</span>
+    // Left Status Pill
+    const statusPill = isBookActive
+      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
+      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
+
+    // Amendment 1: Progress Bar stays visible at 100% and turns green
+    const progressLabelLeft = stats.isCompleted
+      ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
+      : `<span>Reading Progress</span>`;
+
+    const progressLabelRight = stats.isCompleted
+      ? `<span class="font-mono font-bold text-emerald-700">${pageCount} of ${pageCount} Pages (100%)</span>`
+      : `<span class="font-mono text-polaris-text-heading font-semibold">${stats.readPages} of ${pageCount} Pages (${stats.percentage}%)</span>`;
+
+    const barFillColor = stats.isCompleted ? "bg-emerald-500" : "bg-polaris-primary-container";
+    const barTrackBorder = stats.isCompleted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-polaris-progress-track";
+
+    const progressBlock = `
+      <div class="mt-4 pt-3 border-t border-polaris-border-subtle">
+        <div class="flex justify-between items-center text-xs text-polaris-text-muted mb-1.5 font-medium">
+          ${progressLabelLeft}
+          ${progressLabelRight}
         </div>
-      `
-      : `
-        <div class="mt-4 pt-3 border-t border-polaris-border-subtle">
-          <div class="flex justify-between text-xs text-polaris-text-muted mb-1.5 font-medium">
-            <span>Reading Progress</span>
-            <span class="font-mono text-polaris-text-heading font-semibold">${stats.readPages} of ${pageCount} Pages (${stats.percentage}%)</span>
-          </div>
-          <div class="w-full bg-polaris-progress-track rounded-full h-2 overflow-hidden border border-slate-200">
-            <div class="bg-polaris-primary-container h-2 rounded-full transition-all duration-500" style="width: ${stats.percentage}%"></div>
-          </div>
+        <div class="w-full rounded-full h-2 overflow-hidden border ${barTrackBorder}">
+          <div class="${barFillColor} h-2 rounded-full transition-all duration-500" style="width: ${stats.percentage}%"></div>
         </div>
-      `;
+      </div>
+    `;
+
+    // Amendment 2 & 3: Pill-shaped action button + disabled behavior when Inactive
+    const canOpen = isBookActive && Boolean(firstPageId);
+    const actionClickAttr = canOpen ? `onclick="viewPage('${firstPageId}', '${currentBookId}')"` : "";
+
+    const titleClasses = isBookActive
+      ? "font-display font-semibold text-polaris-text-heading text-lg leading-snug mb-2 group-hover:text-polaris-primary-container cursor-pointer transition"
+      : "font-display font-semibold text-slate-500 text-lg leading-snug mb-2 cursor-not-allowed";
+
+    const pageActionButton = isBookActive
+      ? `<button type="button" ${actionClickAttr} class="inline-flex items-center gap-1.5 text-xs font-semibold text-polaris-primary-container bg-polaris-primary-light hover:bg-indigo-100 border border-indigo-200 px-3.5 py-1 rounded-full transition cursor-pointer">
+           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} →
+         </button>`
+      : `<button type="button" disabled aria-disabled="true" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 px-3.5 py-1 rounded-full cursor-not-allowed opacity-75 select-none">
+           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} →
+         </button>`;
+
+    const cardBorderClasses = isBookActive
+      ? "bg-polaris-card-bg border border-polaris-border-subtle rounded-xl p-6 hover:-translate-y-0.5 hover:shadow-elevation-2 transition-all duration-200 flex flex-col justify-between group"
+      : "bg-slate-50/70 border border-slate-200/90 rounded-xl p-6 flex flex-col justify-between opacity-90";
 
     return `
-      <div class="bg-polaris-card-bg border border-polaris-border-subtle rounded-xl p-6 hover:-translate-y-0.5 hover:shadow-elevation-2 transition-all duration-200 flex flex-col justify-between group">
+      <div class="${cardBorderClasses}">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm bg-polaris-primary-light text-polaris-primary-container border border-indigo-100 font-sans">
+            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm ${isBookActive ? 'bg-polaris-primary-light text-polaris-primary-container border border-indigo-100' : 'bg-slate-200/70 text-slate-600 border border-slate-300/60'} font-sans">
               ${book.category || "General"}
             </span>
           </div>
 
-          <h3 onclick="${actionClick}" class="font-display font-semibold text-polaris-text-heading text-lg leading-snug mb-2 group-hover:text-polaris-primary-container cursor-pointer transition">
+          <h3 ${actionClickAttr} class="${titleClasses}">
             ${book.title || "Untitled Book"}
           </h3>
-          <p class="text-xs text-polaris-text-body line-clamp-2 leading-relaxed mb-4">${book.description || "No description provided."}</p>
+          <p class="text-xs text-polaris-text-body line-clamp-2 leading-relaxed mb-4">
+            ${book.description || "No description provided."}
+          </p>
         </div>
 
         <div>
           ${progressBlock}
           <div class="flex items-center justify-between pt-4 mt-2 text-xs">
             ${statusPill}
-            <button type="button" onclick="${actionClick}" class="font-semibold text-polaris-primary-container hover:text-indigo-800 inline-flex items-center gap-1 cursor-pointer">
-              ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
-            </button>
+            ${pageActionButton}
           </div>
         </div>
       </div>
@@ -423,7 +446,12 @@ function viewPage(pageId, bookId) {
   const cleanPageId = String(pageId || "").trim();
   const page = libraryPages.find(p => String(p.page_id || "").trim() === cleanPageId);
   const activeBookId = String(bookId || (page ? page.book_id : "")).trim();
-  const currentBook = libraryBooks.find(b => String(b.book_id).trim() === activeBookId);
+  const currentBook = libraryBooks.find(b => String(b.book_id || "").trim() === activeBookId);
+
+  // Prevent opening or reviewing Inactive playbooks
+  if (currentBook && String(currentBook.status || "ACTIVE").trim().toUpperCase() !== "ACTIVE") {
+    return;
+  }
 
   const pagesInBook = libraryPages.filter(p => String(p.book_id || "").trim() === activeBookId);
   const container = document.getElementById("bookGrid");

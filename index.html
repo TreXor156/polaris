@@ -82,10 +82,9 @@
     </div>
   </header>
 
-  <!-- Hero & Global Search Section (Pill and Metric Ribbon Removed) -->
+  <!-- Hero & Global Search Section -->
   <section class="hero-section bg-gradient-to-b from-polaris-hero-indigo to-polaris-hero-dark text-white pt-12 pb-16 px-4 sm:px-6 relative overflow-hidden">
     <div class="max-w-4xl mx-auto text-center space-y-4">
-      
       <h1 class="font-display text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
         Find Playbooks, Scripts &amp; Policies
       </h1>
@@ -104,7 +103,7 @@
         <span class="absolute left-4 top-5 text-polaris-text-muted">🔍</span>
       </div>
 
-      <!-- Quick Tag Filter Pills (Dynamically Populated from Database) -->
+      <!-- Quick Tag Filter Pills -->
       <div id="dynamicTagsContainer" class="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
         <span class="text-slate-300 font-medium">Popular Tags:</span>
         <span class="text-xs text-slate-400 font-mono">Loading tags...</span>
@@ -115,9 +114,9 @@
   <!-- Main Content Area -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full" id="bookshelf">
     
-    <!-- Category Filter Controls (Dynamically Populated from Database) -->
+    <!-- Category Filter Controls -->
     <div id="shelfControls" class="mb-8">
-      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-polaris-border-subtle">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-polaris-border-subtle">
         <div>
           <div class="flex items-center gap-2">
             <span class="text-[11px] uppercase font-mono tracking-wider text-polaris-text-muted">Enterprise Repository</span>
@@ -127,16 +126,20 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <!-- Dynamic Category Tabs -->
-          <div class="inline-flex bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600 gap-1 flex-wrap" id="categoryTabs">
-            <button class="cat-pill px-3 py-1.5 rounded-md bg-polaris-primary-container text-white font-semibold transition" data-category="ALL">All Materials</button>
+          <!-- Amendment 4: Single Pill-Shaped Category Track -->
+          <div class="inline-flex items-center bg-slate-100 border border-slate-200/80 p-1 rounded-full text-xs gap-1 flex-wrap" id="categoryTabs">
+            <button class="cat-pill px-4 py-1.5 rounded-full bg-polaris-primary-container text-white font-bold shadow-sm transition" data-category="ALL">All Materials</button>
           </div>
-          <span class="text-xs font-mono text-polaris-primary-container font-semibold" id="shelfCount">Loading catalog...</span>
+
+          <!-- Amendment 5: Pale Lavender/Blue Tinted Count Badge -->
+          <span class="text-xs font-mono text-polaris-primary-container font-semibold bg-indigo-50/90 border border-indigo-100 px-3.5 py-1.5 rounded-xl shadow-2xs" id="shelfCount">
+            Loading catalog...
+          </span>
         </div>
       </div>
     </div>
 
-    <!-- Dynamic 3-Column Grid for Bookshelf or Reader Container -->
+    <!-- Dynamic 3-Column Grid for Bookshelf or Full Reader Container -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="bookGrid"></div>
 
     <!-- Bottom Ingestion Callout -->
