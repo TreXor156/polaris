@@ -112,6 +112,22 @@ async function handleLoginSubmit(e) {
 }
 
 /**
+ * Auto-fills the email input with a demo persona credential and submits immediately.
+ */
+function loginAsDemo(email) {
+  const emailInput = document.getElementById("loginEmailInput");
+  const loginForm = document.getElementById("loginForm");
+  if (!emailInput || !loginForm) return;
+
+  emailInput.value = email;
+  if (typeof loginForm.requestSubmit === "function") {
+    loginForm.requestSubmit();
+  } else {
+    loginForm.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
+  }
+}
+
+/**
  * Calls Apps Script doGet(e) to verify user and pull synced User_Progress.
  */
 async function syncUserFromBackend(email, isSilent = false) {
@@ -1026,3 +1042,4 @@ window.renderBookshelf = renderBookshelf;
 window.openLibraryCard = openLibraryCard;
 window.closeLibraryCard = closeLibraryCard;
 window.logoutUser = logoutUser;
+window.loginAsDemo = loginAsDemo;
