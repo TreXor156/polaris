@@ -1,349 +1,166 @@
-/**
- * ============================================================================
- * PROJECT POLARIS - FRONT-END APPLICATION ENGINE (app.js)
- * ============================================================================
- * Architecture:
- * - Headless CMS via Google Sheets GViz JSON API
- * - Apps Script Web App Sync (doGet Login & Progress / doPost Save)
- * - Role-Based UI Visibility (Learner, Creator, Admin)
- * - Department Filtering (Sales, Customer Support, T&Q, Ops)
- * - Dynamic Library Card & Gamification Badges
- * ============================================================================
- */
+// ============================================================================
+// PROJECT POLARIS — ENTERPRISE KNOWLEDGE & ENABLEMENT ENGINE (app.js)
+// ============================================================================
 
-// ----------------------------------------------------------------------------
-// 1. CONFIGURATION & ENDPOINTS
-// ----------------------------------------------------------------------------
-const SPREADSHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKp3lgAXmIfLP84hm6vveNnO_xIFGJwRkjKOZMJFWAsrdbHJQU6-v0pz3i73z0J9In/exec"; // <-- /exec URL HERE
+// 1. DATABASE ENDPOINTS (Google Visualization API)
+const SHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
+const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
+const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
 
-const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
-const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
-
-// ----------------------------------------------------------------------------
-// 2. IN-MEMORY STATE STORE
-// ----------------------------------------------------------------------------
+// 2. IN-MEMORY STATE
 let libraryBooks = [];
 let libraryPages = [];
-let activeTagFilter = null;
 let activeCategoryFilter = "ALL";
-let currentUser = null;
+let activeTagFilter = null;
 
 // ----------------------------------------------------------------------------
-// 3. APPLICATION INITIALIZATION & IDENTITY GATE
+// 3. INITIALIZATION & DATA FETCH ENGINE
 // ----------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
-  const searchInput = document.getElementById("globalSearchInput");
-  if (searchInput) {
-    searchInput.addEventListener("input", () => applyFilters());
-  }
-
-  const loginForm = document.getElementById("loginForm");
-  if (loginForm) {
-    loginForm.addEventListener("submit", handleLoginSubmit);
-  }
-
-  checkAuthenticationState();
+  initPolarisEngine();
 });
 
-/**
- * Checks if a verified user session exists in localStorage.
- * Shows Identity Gate Modal if unauthenticated; otherwise boots catalog.
- */
-function checkAuthenticationState() {
-  const gateModal = document.getElementById("identityGateModal");
-  try {
-    const savedUser = localStorage.getItem("polaris_user");
-    if (savedUser) {
-      currentUser = JSON.parse(savedUser);
-      if (gateModal) gateModal.classList.add("hidden");
-      applyRoleVisibility(currentUser.role);
-      updateNavPatronHeader();
-      fetchCatalog();
-      // Refresh progress silently from Sheets in background
-      syncUserFromBackend(currentUser.email, true);
-      return;
-    }
-  } catch (e) {
-    console.error("[Polaris Auth] Failed to parse saved user:", e);
-  }
-
-  // No active user -> show Identity Gate Modal
-  if (gateModal) gateModal.classList.remove("hidden");
-}
-
-/**
- * Handles login form submission against Apps Script doGet endpoint.
- */
-async function handleLoginSubmit(e) {
-  e.preventDefault();
-  const emailInput = document.getElementById("loginEmailInput");
-  const errorBox = document.getElementById("loginErrorBox");
-  const submitBtn = document.getElementById("loginSubmitBtn");
-
-  const email = (emailInput ? emailInput.value : "").trim().toLowerCase();
-  if (!email) return;
-
-  if (errorBox) errorBox.classList.add("hidden");
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = `<span>Verifying Patron...</span>`;
-  }
-
-  const result = await syncUserFromBackend(email, false);
-
-  if (submitBtn) {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = `<span>Enter Library</span><span>&rarr;</span>`;
-  }
-
-  if (result.success) {
-    const gateModal = document.getElementById("identityGateModal");
-    if (gateModal) gateModal.classList.add("hidden");
-    applyRoleVisibility(currentUser.role);
-    updateNavPatronHeader();
-    fetchCatalog();
-  } else {
-    if (errorBox) {
-      errorBox.innerText = result.message || "Unable to verify email. Check with your Admin.";
-      errorBox.classList.remove("hidden");
-    }
-  }
-}
-
-/**
- * Calls Apps Script doGet(e) to verify user and pull synced User_Progress.
- */
-async function syncUserFromBackend(email, isSilent = false) {
-  if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) {
-    return {
-      success: false,
-      message: "WEB_APP_URL is not configured yet in app.js."
-    };
-  }
-
-  try {
-    const url = `${WEB_APP_URL}?action=login&email=${encodeURIComponent(email)}`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.status === "success" && data.user) {
-      currentUser = {
-        user_id: String(data.user.user_id || "").trim(),
-        email: String(data.user.email || email).trim(),
-        full_name: String(data.user.full_name || "Patron").trim(),
-        role: String(data.user.role || "LEARNER").trim().toUpperCase(),
-        department: String(data.user.department || "General").trim()
-      };
-
-      localStorage.setItem("polaris_user", JSON.stringify(currentUser));
-
-      // Merge/overwrite local progress with authoritative Google Sheets progress
-      if (data.progress && typeof data.progress === "object") {
-        localStorage.setItem("polaris_reading_progress", JSON.stringify(data.progress));
-      }
-
-      if (isSilent && libraryBooks.length > 0) {
-        updateNavPatronHeader();
-        renderBookshelf(libraryBooks);
-      }
-
-      return { success: true };
-    } else {
-      return { success: false, message: data.message || "Patron not found or inactive." };
-    }
-  } catch (err) {
-    console.error("[Polaris Sync] Login/Sync error:", err);
-    return { success: false, message: "Network error connecting to Polaris backend." };
-  }
-}
-
-/**
- * Signs out the current patron and re-opens the Identity Gate.
- */
-function logoutUser() {
-  localStorage.removeItem("polaris_user");
-  localStorage.removeItem("polaris_reading_progress");
-  currentUser = null;
-  closeLibraryCard();
-  const gateModal = document.getElementById("identityGateModal");
-  if (gateModal) gateModal.classList.remove("hidden");
-}
-
-// ----------------------------------------------------------------------------
-// 4. ROLE-BASED UI VISIBILITY (Learner, Creator, Admin)
-// ----------------------------------------------------------------------------
-
-/**
- * Toggles visibility on elements carrying data-role="CREATOR,ADMIN" etc.
- * Roles in sheet: Learner, Creator, Admin (normalized to uppercase).
- */
-function applyRoleVisibility(role) {
-  const normalizedRole = String(role || "LEARNER").trim().toUpperCase();
-
-  document.querySelectorAll("[data-role]").forEach(el => {
-    const allowedRoles = el
-      .getAttribute("data-role")
-      .split(",")
-      .map(r => r.trim().toUpperCase());
-
-    if (allowedRoles.includes(normalizedRole)) {
-      el.classList.remove("hidden");
-    } else {
-      el.classList.add("hidden");
-    }
-  });
-}
-
-/**
- * Formats role string nicely for display (e.g., "CREATOR" -> "Creator").
- */
-function formatRoleLabel(role) {
-  const r = String(role || "LEARNER").trim().toLowerCase();
-  return r.charAt(0).toUpperCase() + r.slice(1);
-}
-
-/**
- * Updates top navigation pills with current patron's department and rank.
- */
-function updateNavPatronHeader() {
-  if (!currentUser) return;
-
-  const deptPill = document.getElementById("navDeptPill");
-  if (deptPill) {
-    deptPill.innerText = `${currentUser.department} • ${formatRoleLabel(currentUser.role)}`;
-  }
-
-  const badgeText = document.getElementById("navUserBadgeText");
-  if (badgeText) {
-    const firstName = currentUser.full_name.split(" ")[0];
-    const gamification = calculatePatronStats();
-    badgeText.innerText = `${firstName} • ${gamification.rankTitle}`;
-  }
-}
-
-// ----------------------------------------------------------------------------
-// 5. DATA RETRIEVAL & GVIZ PARSER
-// ----------------------------------------------------------------------------
-
-/**
- * Fetches Books and Pages data concurrently from Google Sheets.
- */
-async function fetchCatalog() {
-  const shelfCount = document.getElementById("shelfCount");
-  if (shelfCount) shelfCount.innerText = "Connecting to database...";
-
+async function initPolarisEngine() {
   try {
     const [booksRes, pagesRes] = await Promise.all([
-      fetch(BOOKS_URL),
-      fetch(PAGES_URL)
+      fetch(BOOKS_URL).then(r => r.text()),
+      fetch(PAGES_URL).then(r => r.text())
     ]);
 
-    const booksText = await booksRes.text();
-    const pagesText = await pagesRes.text();
+    libraryBooks = parseGvizResponse(booksRes);
+    libraryPages = parseGvizResponse(pagesRes);
 
-    libraryBooks = parseGvizResponse(booksText);
-    libraryPages = parseGvizResponse(pagesText);
-
-    populatePopularTags();
-    populateCategories();
-    updateNavPatronHeader();
+    renderDynamicTagPills();
+    renderDynamicCategoryTabs();
     renderBookshelf(libraryBooks);
-  } catch (error) {
-    console.error("[Polaris Error] Failed to fetch catalog:", error);
-    if (shelfCount) shelfCount.innerText = "Error loading catalog";
-
-    const grid = document.getElementById("bookGrid");
-    if (grid) {
-      grid.innerHTML = `
-        <div class="col-span-full p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          Failed to load database. Please verify spreadsheet sharing permissions.
-        </div>`;
-    }
+    bindSearchListener();
+  } catch (err) {
+    console.error("[Polaris Engine] Failed to load catalog:", err);
+    const shelfCount = document.getElementById("shelfCount");
+    if (shelfCount) shelfCount.textContent = "Error loading catalog";
   }
 }
 
 /**
- * Parses raw Google Visualization (GViz) response text into clean JSON objects.
+ * Parses Google Visualization JSONP-style payload into clean objects.
  */
 function parseGvizResponse(rawText) {
-  const jsonString = rawText.substring(rawText.indexOf("{"), rawText.lastIndexOf("}") + 1);
-  const data = JSON.parse(jsonString);
-  const cols = data.table.cols.map(c => (c.label || c.id || "").trim().toLowerCase());
+  const jsonStart = rawText.indexOf("{");
+  const jsonEnd = rawText.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd === -1) return [];
 
-  return data.table.rows.map(row => {
-    let item = {};
-    row.c.forEach((cell, i) => {
-      const colName = cols[i] || `col_${i}`;
-      item[colName] = cell ? (cell.f || cell.v || "") : "";
+  const parsed = JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
+  const table = parsed.table;
+  if (!table || !table.cols || !table.rows) return [];
+
+  const headers = table.cols.map(col =>
+    String(col.label || col.id || "").trim().toLowerCase().replace(/\s+/g, "_")
+  );
+
+  return table.rows.map(row => {
+    const item = {};
+    (row.c || []).forEach((cell, idx) => {
+      const key = headers[idx];
+      if (!key) return;
+      item[key] = cell && cell.v !== null && cell.v !== undefined
+        ? (cell.f && typeof cell.v === "string" && cell.v.startsWith("Date(") ? cell.f : cell.v)
+        : "";
     });
     return item;
   });
 }
 
 // ----------------------------------------------------------------------------
-// 6. DYNAMIC TAXONOMY & METADATA POPULATION
+// 4. HIGH-CONTRAST HERO TAG FILTER PILLS (#1E293B & #3B82F6)
 // ----------------------------------------------------------------------------
+function renderDynamicTagPills() {
+  const container = document.getElementById("dynamicTagsContainer");
+  if (!container) return;
 
-function populatePopularTags() {
-  const tagsContainer = document.getElementById("dynamicTagsContainer");
-  if (!tagsContainer) return;
+  const tagSet = new Set();
+  libraryPages.forEach(page => {
+    (page.tags || "")
+      .split(",")
+      .map(t => t.trim().replace(/^#/, ""))
+      .filter(Boolean)
+      .forEach(tag => tagSet.add(tag));
+  });
 
-  const rawTags = libraryPages.flatMap(p =>
-    (p.tags || "").split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
-  );
-  const distinctTags = [...new Set(rawTags)];
-
-  if (distinctTags.length === 0) {
-    tagsContainer.innerHTML = `<span class="text-slate-300 font-medium">Popular Tags:</span> <span class="text-xs text-slate-400">No tags recorded.</span>`;
+  const tags = Array.from(tagSet);
+  if (tags.length === 0) {
+    container.innerHTML = `<span class="text-slate-300 font-medium">Popular Tags:</span> <span class="text-xs text-slate-400 font-mono">No tags available</span>`;
     return;
   }
 
-  tagsContainer.innerHTML = `
-    <span class="text-slate-300 font-medium">Popular Tags:</span>
-    ${distinctTags.map(tag => `
-      <button type="button" 
-              class="tag-filter-btn bg-white/10 hover:bg-white/20 text-slate-100 px-3.5 py-1 rounded-full border border-white/15 transition cursor-pointer font-mono text-[11px]" 
-              data-tag="${tag}">
-        #${tag}
-      </button>
-    `).join("")}
-  `;
+  const pillsHtml = tags.map(tag => {
+    const isSelected = activeTagFilter && activeTagFilter.toLowerCase() === tag.toLowerCase();
 
-  tagsContainer.querySelectorAll(".tag-filter-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => {
-      const selectedTag = e.target.getAttribute("data-tag");
-      if (activeTagFilter === selectedTag) {
-        activeTagFilter = null;
-        e.target.classList.remove("ring-2", "ring-white", "bg-white/30");
-      } else {
-        tagsContainer.querySelectorAll(".tag-filter-btn").forEach(b => b.classList.remove("ring-2", "ring-white", "bg-white/30"));
-        activeTagFilter = selectedTag;
-        e.target.classList.add("ring-2", "ring-white", "bg-white/30");
-      }
-      applyFilters();
-    });
-  });
+    // High-contrast accessible states against dark navy hero (#0A1128 / #0F172A)
+    const pillClasses = isSelected
+      ? "bg-[#3B82F6] hover:bg-blue-500 text-white border border-blue-300 font-semibold shadow-sm ring-2 ring-blue-400/40"
+      : "bg-[#1E293B] hover:bg-slate-700 text-[#F8FAFC] border border-slate-600 hover:border-slate-400 font-medium";
+
+    const checkIcon = isSelected
+      ? `<svg class="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.415 0l-3.25-3.25a1 1 0 011.414-1.42l2.543 2.544 6.543-6.544a1 1 0 011.415 0z" clip-rule="evenodd"/></svg>`
+      : "";
+
+    return `
+      <button type="button"
+              onclick="toggleTagFilter('${tag.replace(/'/g, "\\'")}')"
+              aria-pressed="${isSelected}"
+              class="tag-filter-btn inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-mono text-xs transition cursor-pointer ${pillClasses}">
+        ${checkIcon}
+        <span>#${tag}</span>
+      </button>
+    `;
+  }).join("");
+
+  container.innerHTML = `
+    <span class="text-[#F8FAFC] font-medium mr-1">Popular Tags:</span>
+    ${pillsHtml}
+  `;
 }
 
-function populateCategories() {
+function toggleTagFilter(tag) {
+  if (activeTagFilter && activeTagFilter.toLowerCase() === tag.toLowerCase()) {
+    activeTagFilter = null;
+  } else {
+    activeTagFilter = tag;
+  }
+  renderDynamicTagPills();
+  applyFilters();
+}
+
+// ----------------------------------------------------------------------------
+// 5. DYNAMIC CATEGORY TABS
+// ----------------------------------------------------------------------------
+function renderDynamicCategoryTabs() {
   const categoryTabsContainer = document.getElementById("categoryTabs");
   if (!categoryTabsContainer) return;
 
-  const distinctCategories = [...new Set(libraryBooks.map(b => (b.category || "").trim()).filter(Boolean))];
+  const categories = Array.from(
+    new Set(
+      libraryBooks
+        .map(b => String(b.category || "").trim())
+        .filter(Boolean)
+    )
+  );
 
-  const activePillClasses = "bg-polaris-primary-container text-white font-bold shadow-sm";
-  const inactivePillClasses = "text-slate-700 font-normal hover:text-slate-900";
+  const dynamicBtns = categories.map(cat => `
+    <button type="button"
+            class="cat-pill px-4 py-1.5 rounded-full text-slate-700 font-normal hover:text-slate-900 transition cursor-pointer"
+            data-category="${cat}">
+      ${cat}
+    </button>
+  `).join("");
 
   categoryTabsContainer.innerHTML = `
-    <button type="button" class="cat-pill px-4 py-1.5 rounded-full transition cursor-pointer ${activeCategoryFilter === 'ALL' ? activePillClasses : inactivePillClasses}" data-category="ALL">
+    <button type="button"
+            class="cat-pill px-4 py-1.5 rounded-full bg-polaris-primary-container text-white font-bold shadow-sm transition cursor-pointer"
+            data-category="ALL">
       All Materials
     </button>
-    ${distinctCategories.map(cat => `
-      <button type="button" class="cat-pill px-4 py-1.5 rounded-full transition cursor-pointer ${activeCategoryFilter === cat ? activePillClasses : inactivePillClasses}" data-category="${cat}">
-        ${cat}
-      </button>
-    `).join("")}
+    ${dynamicBtns}
   `;
 
   categoryTabsContainer.querySelectorAll(".cat-pill").forEach(btn => {
@@ -363,8 +180,13 @@ function populateCategories() {
 }
 
 // ----------------------------------------------------------------------------
-// 7. GLOBAL LIVE SEARCH & FILTER ENGINE
+// 6. GLOBAL LIVE SEARCH & FILTER ENGINE
 // ----------------------------------------------------------------------------
+function bindSearchListener() {
+  const searchInput = document.getElementById("globalSearchInput");
+  if (!searchInput) return;
+  searchInput.addEventListener("input", () => applyFilters());
+}
 
 function applyFilters() {
   const searchInput = document.getElementById("globalSearchInput");
@@ -381,7 +203,7 @@ function applyFilters() {
 
     if (activeTagFilter) {
       const matchesTag = relatedPages.some(p => {
-        const pageTags = (p.tags || "").toLowerCase().split(",").map(t => t.trim());
+        const pageTags = (p.tags || "").toLowerCase().split(",").map(t => t.trim().replace(/^#/, ""));
         return pageTags.includes(activeTagFilter.toLowerCase());
       });
       if (!matchesTag) return false;
@@ -408,9 +230,8 @@ function applyFilters() {
 }
 
 // ----------------------------------------------------------------------------
-// 8. MANUAL COMPLETION TRACKING & CROSS-DEVICE SHEETS SYNC
+// 7. MANUAL COMPLETION TRACKING & GAMIFICATION
 // ----------------------------------------------------------------------------
-
 function getReadingProgress() {
   try {
     const saved = localStorage.getItem("polaris_reading_progress");
@@ -421,9 +242,6 @@ function getReadingProgress() {
   }
 }
 
-/**
- * Updates page completion locally AND syncs to User_Progress tab via doPost(e).
- */
 function togglePageCompletion(pageId, bookId, isChecked) {
   if (!pageId) return;
   const cleanPageId = String(pageId).trim();
@@ -445,251 +263,80 @@ function togglePageCompletion(pageId, bookId, isChecked) {
     progress[targetBookId] = progress[targetBookId].filter(id => id !== cleanPageId);
   }
 
-  localStorage.setItem("polaris_reading_progress", JSON.stringify(progress));
-  updateNavPatronHeader();
-
-  // Background sync to Google Sheets User_Progress
-  const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === targetBookId);
-  syncProgressToSheets(targetBookId, progress[targetBookId], bookPages.length);
-}
-
-/**
- * Sends updated pages_read array for a book to Apps Script doPost(e).
- */
-async function syncProgressToSheets(bookId, pagesReadArray, totalPages) {
-  if (!currentUser || !currentUser.user_id) return;
-  if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) return;
-
-  const syncIndicator = document.getElementById("syncStatusIndicator");
-  if (syncIndicator) {
-    syncIndicator.innerText = "↻ Syncing...";
-    syncIndicator.className = "text-[11px] font-mono text-amber-600";
-  }
-
   try {
-    const response = await fetch(WEB_APP_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify({
-        user_id: currentUser.user_id,
-        book_id: bookId,
-        pages_read: pagesReadArray,
-        total_pages: totalPages
-      })
-    });
-
-    const resData = await response.json();
-    if (resData.status === "success" && syncIndicator) {
-      syncIndicator.innerText = "● Synced to Sheets";
-      syncIndicator.className = "text-[11px] font-mono text-emerald-600";
-    }
-  } catch (err) {
-    console.error("[Polaris Sync] Failed to write progress to Sheets:", err);
-    if (syncIndicator) {
-      syncIndicator.innerText = "⚠️ Offline (Saved Locally)";
-      syncIndicator.className = "text-[11px] font-mono text-red-600";
-    }
+    localStorage.setItem("polaris_reading_progress", JSON.stringify(progress));
+  } catch (e) {
+    console.error("[Polaris Progress] Error saving localStorage:", e);
   }
 }
 
 function calculateBookProgress(bookId, totalPages) {
   const cleanBookId = String(bookId || "").trim();
-  const progress = getReadingProgress();
-  const readList = progress[cleanBookId] || [];
-  const count = Math.min(readList.length, totalPages);
-  const percentage = totalPages > 0 ? Math.round((count / totalPages) * 100) : 0;
-
-  return {
-    readPages: count,
-    percentage: percentage,
-    isCompleted: totalPages > 0 && count >= totalPages
-  };
-}
-
-// ----------------------------------------------------------------------------
-// 9. LIBRARY CARD DRAWER & DYNAMIC BADGE ENGINE
-// ----------------------------------------------------------------------------
-
-function calculatePatronStats() {
-  const progress = getReadingProgress();
-  let totalPagesRead = 0;
-  let completedBooksCount = 0;
-
-  const activeBooks = libraryBooks.filter(
-    b => String(b.status || "ACTIVE").trim().toUpperCase() === "ACTIVE"
+  const completedIds = getReadingProgress()[cleanBookId] || [];
+  const validPageIds = new Set(
+    libraryPages
+      .filter(p => String(p.book_id || "").trim() === cleanBookId)
+      .map(p => String(p.page_id || "").trim())
   );
 
-  activeBooks.forEach(book => {
-    const bId = String(book.book_id || "").trim();
-    const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === bId);
-    const readPages = (progress[bId] || []).filter(pid =>
-      bookPages.some(bp => String(bp.page_id).trim() === String(pid).trim())
-    );
-
-    totalPagesRead += readPages.length;
-    if (bookPages.length > 0 && readPages.length >= bookPages.length) {
-      completedBooksCount += 1;
-    }
-  });
-
-  // Determine highest unlocked rank
-  let rankTitle = "New Patron";
-  if (activeBooks.length > 0 && completedBooksCount >= activeBooks.length) {
-    rankTitle = "Master Archivist";
-  } else if (completedBooksCount >= 3) {
-    rankTitle = "Subject Scholar";
-  } else if (completedBooksCount >= 1) {
-    rankTitle = "Avid Reader";
-  } else if (totalPagesRead >= 1) {
-    rankTitle = "Novice Reader";
-  }
-
-  const badges = [
-    {
-      id: "novice",
-      icon: "📖",
-      title: "Novice Reader",
-      desc: "Complete at least 1 playbook page.",
-      unlocked: totalPagesRead >= 1
-    },
-    {
-      id: "avid",
-      icon: "🏅",
-      title: "Avid Reader",
-      desc: "Complete 100% of any 1 playbook (Gold Stamp).",
-      unlocked: completedBooksCount >= 1
-    },
-    {
-      id: "scholar",
-      icon: "🎓",
-      title: "Subject Scholar",
-      desc: "Complete 3 or more active playbooks.",
-      unlocked: completedBooksCount >= 3
-    },
-    {
-      id: "archivist",
-      icon: "🏛️",
-      title: "Master Archivist",
-      desc: "Complete 100% of all active playbooks in the library.",
-      unlocked: activeBooks.length > 0 && completedBooksCount >= activeBooks.length
-    }
-  ];
-
-  // Role-specific bonus badge for Creators & Admins
-  const userRole = currentUser ? currentUser.role : "LEARNER";
-  if (userRole === "CREATOR" || userRole === "ADMIN") {
-    badges.push({
-      id: "curator",
-      icon: "✍️",
-      title: userRole === "ADMIN" ? "Library Steward (Admin)" : "Playbook Author (Creator)",
-      desc: "Authorized to publish and maintain enablement content.",
-      unlocked: true
-    });
-  }
+  const readPages = completedIds.filter(id => validPageIds.has(id)).length;
+  const safeTotal = Math.max(Number(totalPages) || validPageIds.size || 0, 0);
+  const percentage = safeTotal > 0 ? Math.min(Math.round((readPages / safeTotal) * 100), 100) : 0;
 
   return {
-    totalPagesRead,
-    completedBooksCount,
-    totalActiveBooks: activeBooks.length,
-    rankTitle,
-    badges
+    readPages,
+    totalPages: safeTotal,
+    percentage,
+    isCompleted: safeTotal > 0 && readPages >= safeTotal
   };
 }
 
-function openLibraryCard() {
-  if (!currentUser) return;
-
-  const stats = calculatePatronStats();
-
-  document.getElementById("cardPatronName").innerText = currentUser.full_name;
-  document.getElementById("cardPatronDept").innerText = `${currentUser.department} • ${formatRoleLabel(currentUser.role)}`;
-  document.getElementById("cardPatronId").innerText = currentUser.user_id;
-  document.getElementById("cardPatronEmail").innerText = currentUser.email;
-  document.getElementById("cardPagesCount").innerText = stats.totalPagesRead;
-  document.getElementById("cardBooksCount").innerText = `${stats.completedBooksCount}/${stats.totalActiveBooks}`;
-  document.getElementById("cardTierLabel").innerText = stats.rankTitle;
-
-  const badgesContainer = document.getElementById("badgesContainer");
-  badgesContainer.innerHTML = stats.badges.map(b => {
-    const cardStyle = b.unlocked
-      ? "bg-emerald-50/70 border-emerald-200 text-polaris-text-heading"
-      : "bg-slate-50 border-slate-200 text-slate-400 opacity-70";
-    const statusPill = b.unlocked
-      ? `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Unlocked</span>`
-      : `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Locked</span>`;
-
-    return `
-      <div class="p-3.5 rounded-xl border ${cardStyle} flex items-center justify-between gap-3 transition">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-lg shadow-2xs">
-            ${b.unlocked ? b.icon : "🔒"}
-          </div>
-          <div>
-            <h5 class="font-display text-xs font-bold">${b.title}</h5>
-            <p class="text-[11px] leading-snug mt-0.5">${b.desc}</p>
-          </div>
-        </div>
-        ${statusPill}
-      </div>
-    `;
-  }).join("");
-
-  document.getElementById("libraryCardBackdrop").classList.remove("hidden");
-  document.getElementById("libraryCardDrawer").classList.remove("hidden");
-}
-
-function closeLibraryCard() {
-  document.getElementById("libraryCardBackdrop").classList.add("hidden");
-  document.getElementById("libraryCardDrawer").classList.add("hidden");
-}
-
 // ----------------------------------------------------------------------------
-// 10. BOOKSHELF RENDERER
+// 8. BOOKSHELF CATALOG RENDERER
 // ----------------------------------------------------------------------------
-
 function renderBookshelf(books) {
   const grid = document.getElementById("bookGrid");
-  const shelfCount = document.getElementById("shelfCount");
   const shelfControls = document.getElementById("shelfControls");
   const ingestCallout = document.getElementById("ingestCallout");
-  const heroSection = document.querySelector(".hero-section");
-
-  if (shelfControls) shelfControls.classList.remove("hidden");
-  if (heroSection) heroSection.classList.remove("hidden");
-  if (currentUser) applyRoleVisibility(currentUser.role);
-
-  if (shelfCount) {
-    shelfCount.innerText = `${books.length} Playbook${books.length === 1 ? "" : "s"} Available`;
-  }
+  const shelfCount = document.getElementById("shelfCount");
 
   if (!grid) return;
 
-  if (books.length === 0) {
+  if (shelfControls) shelfControls.classList.remove("hidden");
+  if (ingestCallout) ingestCallout.classList.remove("hidden");
+
+  grid.className = "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
+
+  if (shelfCount) {
+    shelfCount.textContent = `${books.length} ${books.length === 1 ? "Playbook" : "Playbooks"} Available`;
+  }
+
+  if (!books || books.length === 0) {
     grid.innerHTML = `
-      <div class="col-span-full py-16 text-center text-polaris-text-muted bg-white rounded-2xl border border-polaris-border-subtle shadow-elevation-1">
-        <span class="text-3xl">🔍</span>
-        <p class="font-display text-base font-semibold text-polaris-text-heading mt-2">No matching playbooks found</p>
-        <p class="text-xs text-polaris-text-muted mt-1 font-normal">Try adjusting your query, switching categories, or clearing tags.</p>
-      </div>`;
+      <div class="col-span-full bg-white border border-polaris-border-subtle rounded-2xl p-10 text-center">
+        <p class="font-display font-bold text-polaris-text-heading text-base">No matching playbooks found</p>
+        <p class="text-xs text-polaris-text-muted mt-1">Try clearing your active tag filter or adjusting your search keywords.</p>
+      </div>
+    `;
     return;
   }
 
   grid.innerHTML = books.map(book => {
     const currentBookId = String(book.book_id || "").trim();
-    const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === currentBookId);
-    const pageCount = bookPages.length;
-    const firstPageId = pageCount > 0 ? String(bookPages[0].page_id).trim() : null;
+    const relatedPages = libraryPages
+      .filter(p => String(p.book_id || "").trim() === currentBookId)
+      .sort((a, b) => (Number(a.page_number) || 0) - (Number(b.page_number) || 0));
 
+    const pageCount = relatedPages.length || Number(book.total_pages) || 0;
+    const firstPageId = relatedPages.length > 0 ? String(relatedPages[0].page_id).trim() : "";
     const stats = calculateBookProgress(currentBookId, pageCount);
 
-    const rawBookStatus = (book.status || "ACTIVE").trim().toUpperCase();
+    const rawBookStatus = String(book.status || "ACTIVE").trim().toUpperCase();
     const isBookActive = rawBookStatus === "ACTIVE";
 
     const statusPill = isBookActive
-      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
-      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
+      ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
+      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
 
     const progressLabelLeft = stats.isCompleted
       ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
@@ -737,11 +384,10 @@ function renderBookshelf(books) {
       <div class="${cardBorderClasses}">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm ${isBookActive ? 'bg-polaris-primary-light text-polaris-primary-container border border-indigo-100' : 'bg-slate-200/70 text-slate-600 border border-slate-300/60'} font-sans">
+            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm ${isBookActive ? "bg-polaris-primary-light text-polaris-primary-container border border-indigo-100" : "bg-slate-200/70 text-slate-600 border border-slate-300/60"} font-sans">
               ${book.category || "General"}
             </span>
           </div>
-
           <h3 ${actionClickAttr} class="${titleClasses}">
             ${book.title || "Untitled Book"}
           </h3>
@@ -749,7 +395,6 @@ function renderBookshelf(books) {
             ${book.description || "No description provided."}
           </p>
         </div>
-
         <div>
           ${progressBlock}
           <div class="flex items-center justify-between pt-4 mt-2 text-xs">
@@ -763,30 +408,17 @@ function renderBookshelf(books) {
 }
 
 // ----------------------------------------------------------------------------
-// 11. DEDICATED PAGE READER VIEW
+// 9. DEDICATED PAGE READER VIEW (BREADCRUMB + GROUPED BOTTOM FOOTER ACTIONS)
 // ----------------------------------------------------------------------------
-
 function renderMarkdownContent(rawMarkdown) {
-  if (!rawMarkdown) {
-    return '<p class="text-polaris-text-muted italic">No content available for this section.</p>';
-  }
-
-  let cleaned = String(rawMarkdown)
-    .replace(/^```(?:markdown|md)?\s*\n?/i, "")
-    .replace(/\n?```\s*$/g, "")
-    .trim();
-
+  let cleaned = String(rawMarkdown || "").trim();
+  cleaned = cleaned.replace(/^```(?:markdown|md)?\s*/i, "").replace(/```\s*$/, "");
   cleaned = cleaned.replace(/^[ \t]+(?=#|>|-|\*|\d+\.)/gm, "");
 
-  if (typeof marked !== "undefined") {
-    marked.setOptions({
-      breaks: true,
-      gfm: true
-    });
+  if (typeof marked !== "undefined" && typeof marked.parse === "function") {
     return marked.parse(cleaned);
   }
-
-  return cleaned;
+  return `<p>${cleaned.replace(/\n/g, "<br>")}</p>`;
 }
 
 function viewPage(pageId, bookId) {
@@ -799,7 +431,10 @@ function viewPage(pageId, bookId) {
     return;
   }
 
-  const pagesInBook = libraryPages.filter(p => String(p.book_id || "").trim() === activeBookId);
+  const pagesInBook = libraryPages
+    .filter(p => String(p.book_id || "").trim() === activeBookId)
+    .sort((a, b) => (Number(a.page_number) || 0) - (Number(b.page_number) || 0));
+
   const container = document.getElementById("bookGrid");
   const shelfControls = document.getElementById("shelfControls");
   const ingestCallout = document.getElementById("ingestCallout");
@@ -811,30 +446,43 @@ function viewPage(pageId, bookId) {
   if (ingestCallout) ingestCallout.classList.add("hidden");
   if (heroSection) heroSection.classList.add("hidden");
 
+  // Determine current chapter index & Next Chapter target
+  const currentIdx = pagesInBook.findIndex(p => String(p.page_id || "").trim() === cleanPageId);
+  const nextPage = currentIdx >= 0 && currentIdx < pagesInBook.length - 1 ? pagesInBook[currentIdx + 1] : null;
+  const bookTitle = currentBook ? currentBook.title : "Playbook";
+  const chapterNum = page.page_number || (currentIdx >= 0 ? currentIdx + 1 : 1);
+
+  // Left sidebar chapter directory
   const sidebarLinks = pagesInBook.map((p, idx) => {
-    const isCurrent = String(p.page_id || "").trim() === cleanPageId;
+    const pId = String(p.page_id || "").trim();
+    const isCurrent = pId === cleanPageId;
+    const isCompletedItem = (getReadingProgress()[activeBookId] || []).includes(pId);
     const activeClass = isCurrent
       ? "bg-polaris-primary-container text-white font-semibold shadow-sm"
       : "bg-white text-polaris-text-body hover:bg-slate-100 border border-slate-200 font-medium";
+
     return `
-      <button onclick="viewPage('${String(p.page_id).trim()}', '${activeBookId}')" 
-              class="w-full text-left px-3.5 py-2.5 rounded-lg text-xs transition cursor-pointer font-sans mb-1.5 flex items-center justify-between ${activeClass}">
+      <button type="button"
+              onclick="viewPage('${pId}', '${activeBookId}')"
+              class="w-full text-left px-3.5 py-2.5 rounded-lg text-xs transition cursor-pointer font-sans mb-1.5 flex items-center justify-between gap-2 ${activeClass}">
         <span class="truncate">Chapter ${p.page_number || idx + 1}: ${p.title}</span>
-        ${isCurrent ? '<span>•</span>' : ''}
+        ${isCurrent ? "<span>•</span>" : (isCompletedItem ? `<span class="text-emerald-600 font-bold">✓</span>` : "")}
       </button>
     `;
   }).join("");
 
+  // Completion state
   const isPageDone = (getReadingProgress()[activeBookId] || []).includes(cleanPageId);
 
-  const rawStatus = (page.status || "PUBLISHED").toUpperCase();
+  // Status badge
+  const rawStatus = String(page.status || "PUBLISHED").toUpperCase();
   const statusBadge = rawStatus.includes("PENDING")
     ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ ${page.status}</span>`
     : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">✓ ${page.status}</span>`;
 
+  // Standardized review dates (+90 days fallback)
   let lastReviewed = page.last_reviewed_date || "N/A";
   let nextReview = page.next_review_due;
-
   if (!nextReview || nextReview === "N/A") {
     const baseDate = (lastReviewed !== "N/A" && !isNaN(new Date(lastReviewed).getTime()))
       ? new Date(lastReviewed)
@@ -843,152 +491,156 @@ function viewPage(pageId, bookId) {
     nextReview = baseDate.toISOString().split("T")[0];
   }
 
-  const pageTags = (page.tags || "").split(",").map(t => t.trim()).filter(Boolean);
+  // Page tags
+  const pageTags = (page.tags || "").split(",").map(t => t.trim().replace(/^#/, "")).filter(Boolean);
   const tagsHtml = pageTags.length > 0
     ? `<div class="flex flex-wrap items-center gap-1.5">
          <span class="text-xs font-semibold text-slate-500 mr-1">Tags:</span>
-         ${pageTags.map(t => `<span class="text-[11px] bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join("")}
+         ${pageTags.map(t => `<span class="text-[11px] bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full font-mono border border-slate-200">#${t}</span>`).join("")}
        </div>`
     : "";
 
-  // Role-based Suggest Edit visibility (Creator & Admin only)
-  const userRole = currentUser ? currentUser.role : "LEARNER";
-  const canEdit = userRole === "CREATOR" || userRole === "ADMIN";
-  const suggestEditHtml = canEdit
-    ? `<a href="https://docs.google.com/forms" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
-         ✏️ Suggest Edit
-       </a>`
-    : "";
+  // Next Chapter button (or Finish action on final chapter)
+  const nextChapterButtonHtml = nextPage
+    ? `<button type="button"
+               onclick="viewPage('${String(nextPage.page_id).trim()}', '${activeBookId}')"
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-polaris-primary-container hover:bg-indigo-700 text-white shadow-sm transition cursor-pointer">
+         <span>Next Chapter</span>
+         <span>→</span>
+       </button>`
+    : `<button type="button"
+               onclick="exitReaderView()"
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition cursor-pointer">
+         <span>Finish &amp; Return to Bookshelf</span>
+         <span>✓</span>
+       </button>`;
 
+  container.className = "block w-full";
   container.innerHTML = `
-    <div class="col-span-full max-w-7xl mx-auto w-full pt-2">
-      
-      <!-- Top Banner Header -->
-      <div class="bg-polaris-hero-dark text-white rounded-t-2xl px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-800">
-        <div class="flex items-center gap-3">
-          <button type="button" onclick="exitReaderView()" class="text-xs text-indigo-300 hover:text-white inline-flex items-center gap-1.5 font-medium cursor-pointer transition">
-            &larr; Back to Bookshelf
-          </button>
-          <span class="text-slate-600">|</span>
-          <span class="font-display text-sm font-bold text-white">${currentBook ? currentBook.title : 'Playbook Active'}</span>
-        </div>
-        <div class="text-xs font-mono text-slate-400">
-          Page ${page.page_number || 1} of ${pagesInBook.length}
-        </div>
-      </div>
+    <div class="w-full">
+      <!-- Top Breadcrumb Trail (Replaces duplicate top Back button) -->
+      <nav aria-label="Breadcrumb" class="mb-6 flex flex-wrap items-center gap-2 text-xs text-polaris-text-muted">
+        <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
+          Bookshelf
+        </button>
+        <span class="text-slate-400">/</span>
+        <span class="font-medium text-polaris-text-heading truncate max-w-xs sm:max-w-md">${bookTitle}</span>
+        <span class="text-slate-400">/</span>
+        <span class="font-mono text-slate-500">Chapter ${chapterNum}</span>
+      </nav>
 
-      <!-- Split Screen Layout -->
-      <div class="grid grid-cols-1 md:grid-cols-12 bg-white border-x border-b border-polaris-border-subtle rounded-b-2xl shadow-elevation-1 min-h-[600px]">
+      <!-- Split Reader Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
         
-        <!-- Left Sidebar: Chapter Navigation -->
-        <aside class="md:col-span-3 border-r border-polaris-border-subtle p-5 bg-slate-50/70">
-          <div class="sticky top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Playbook Directory</h4>
-            <div class="space-y-1">
-              ${sidebarLinks}
-            </div>
+        <!-- Left Sidebar: Chapter Navigation Directory -->
+        <aside class="md:col-span-3 bg-white border border-polaris-border-subtle rounded-2xl p-4 shadow-elevation-1 md:sticky md:top-20">
+          <div class="text-[11px] font-mono uppercase tracking-wider text-polaris-text-muted mb-3 px-1">
+            Chapters (${pagesInBook.length})
+          </div>
+          <div>
+            ${sidebarLinks}
           </div>
         </aside>
 
-        <!-- Right Pane: Main Article Content -->
-        <article class="md:col-span-9 p-6 sm:p-8 space-y-6">
+        <!-- Main Lesson Card -->
+        <article class="md:col-span-9 bg-white border border-polaris-border-subtle rounded-2xl p-6 sm:p-8 shadow-elevation-1 space-y-6">
           
-          <!-- Document Control Governance Header -->
-          <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs text-polaris-text-body">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+          <!-- Document Control Governance Header (Completion toggle moved to footer) -->
+          <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-600">
+            <div class="flex flex-wrap items-center gap-3">
               ${statusBadge}
-              
-              <!-- Checkbox Counter -->
-              <label class="inline-flex items-center gap-2 cursor-pointer font-medium text-polaris-text-heading hover:text-polaris-primary-container select-none">
-                <input 
-                  type="checkbox" 
-                  id="completionToggle"
-                  ${isPageDone ? 'checked' : ''} 
-                  class="w-4 h-4 text-polaris-primary-container rounded cursor-pointer accent-indigo-600 focus:ring-indigo-500" 
-                  onchange="togglePageCompletion('${cleanPageId}', '${activeBookId}', this.checked)"
-                >
-                <span class="font-semibold text-xs">Mark as Completed</span>
-              </label>
+              <span><strong class="text-slate-800">Version:</strong> ${page.version || "v1.0"}</span>
             </div>
-            
-            <!-- Governance Fields Matching Database -->
-            <div class="grid grid-cols-3 gap-4 font-mono text-[11px]">
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Version</span>
-                <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
-              </div>
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
-                <span class="font-bold text-polaris-text-heading">${lastReviewed}</span>
-              </div>
-              <div>
-                <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Next Review Date</span>
-                <span class="font-bold text-polaris-text-heading">${nextReview}</span>
-              </div>
+            <div class="flex flex-wrap items-center gap-4 font-mono text-[11px] text-slate-500">
+              <span><strong class="text-slate-700 font-sans">Last Reviewed:</strong> ${lastReviewed}</span>
+              <span><strong class="text-slate-700 font-sans">Next Review:</strong> ${nextReview}</span>
             </div>
           </div>
 
-          <!-- Page Heading -->
-          <div>
-            <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2">${page.title || 'Untitled Page'}</h1>
-            <p class="text-polaris-text-muted text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
-          </div>
+          <!-- Lesson Title -->
+          <header class="border-b border-slate-100 pb-4">
+            <div class="text-xs font-mono text-polaris-primary-container font-semibold uppercase tracking-wide mb-1">
+              Chapter ${chapterNum} of ${pagesInBook.length}
+            </div>
+            <h1 class="font-display text-2xl sm:text-3xl font-bold text-polaris-text-heading leading-tight">
+              ${page.title || "Untitled Chapter"}
+            </h1>
+          </header>
 
-          <!-- Body Content Area (Parsed Markdown) -->
-          <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
-                      prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
-                      prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
-                      prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
-                      prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
-                      prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
+          <!-- Parsed Markdown Lesson Body -->
+          <div class="prose prose-slate max-w-none prose-headings:font-display prose-headings:text-polaris-text-heading prose-a:text-polaris-primary-container">
             ${renderMarkdownContent(page.body_markdown)}
           </div>
 
-          <!-- Utility Actions (Relocated above Tags) -->
+          <!-- Utility Actions & Tags -->
           <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div class="flex items-center gap-4 text-xs text-polaris-text-muted">
-              <button onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
+              <button type="button" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                 📋 Copy Link
               </button>
-              <button onclick="window.print()" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
+              <button type="button" onclick="window.print()" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                 🖨️ Print / PDF
               </button>
-              ${suggestEditHtml}
+              <a href="https://docs.google.com/forms" target="_blank" class="hover:text-polaris-primary-container font-medium inline-flex items-center gap-1">
+                ✏️ Suggest Edit
+              </a>
             </div>
-
-            <!-- Page Tags -->
             <div>
               ${tagsHtml}
             </div>
           </div>
 
-          <!-- Bottom Return Navigation -->
-          <div class="pt-6 border-t border-slate-100 flex items-center justify-between">
-            <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer">
-              &larr; Back to Bookshelf
+          <!-- Bottom Footer: Single Left Back Link + Grouped Right Completion & Next Chapter Actions -->
+          <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer inline-flex items-center gap-1 self-start sm:self-auto">
+              ← Back to Bookshelf
             </button>
-            <span class="text-xs text-polaris-text-muted font-mono">End of Page ${page.page_number || 1}</span>
+
+            <div class="flex flex-wrap items-center gap-3 self-end sm:self-auto">
+              <!-- Relocated Completion Checkbox Action -->
+              <label for="pageCompleteCheckbox"
+                     class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold cursor-pointer select-none transition ${isPageDone ? "bg-emerald-50 border-emerald-300 text-emerald-800" : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700"}">
+                <input type="checkbox"
+                       id="pageCompleteCheckbox"
+                       ${isPageDone ? "checked" : ""}
+                       onchange="handleReaderCompletionToggle('${cleanPageId}', '${activeBookId}', this.checked)"
+                       class="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer">
+                <span>${isPageDone ? "Completed" : "Mark as Completed"}</span>
+              </label>
+
+              <!-- Side-by-Side Next Chapter Action -->
+              ${nextChapterButtonHtml}
+            </div>
           </div>
 
         </article>
       </div>
     </div>
   `;
+
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+/**
+ * Updates completion state and re-renders the active reader footer & sidebar indicator immediately.
+ */
+function handleReaderCompletionToggle(pageId, bookId, isChecked) {
+  togglePageCompletion(pageId, bookId, isChecked);
+  viewPage(pageId, bookId);
 }
 
 function exitReaderView() {
   const heroSection = document.querySelector(".hero-section");
   if (heroSection) heroSection.classList.remove("hidden");
-  renderBookshelf(libraryBooks);
+  applyFilters();
 }
 
 // ----------------------------------------------------------------------------
-// 12. GLOBAL EXPORTS
+// 10. GLOBAL EXPORTS
 // ----------------------------------------------------------------------------
 window.viewPage = viewPage;
 window.exitReaderView = exitReaderView;
 window.togglePageCompletion = togglePageCompletion;
+window.handleReaderCompletionToggle = handleReaderCompletionToggle;
+window.toggleTagFilter = toggleTagFilter;
 window.renderBookshelf = renderBookshelf;
-window.openLibraryCard = openLibraryCard;
-window.closeLibraryCard = closeLibraryCard;
-window.logoutUser = logoutUser;
