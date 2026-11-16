@@ -15,7 +15,7 @@
 // 1. CONFIGURATION & ENDPOINTS
 // ----------------------------------------------------------------------------
 const SPREADSHEET_ID = "1lWB14GzVzE_14WMTsG_Rj71gXYowpDeyovovxau7iDg";
-const WEB_APP_URL = "YOUR_DEPLOYED_WEB_APP_URL"; // <-- PASTE YOUR APPS SCRIPT /exec URL HERE
+const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwKp3lgAXmIfLP84hm6vveNnO_xIFGJwRkjKOZMJFWAsrdbHJQU6-v0pz3i73z0J9In/exec";
 
 const BOOKS_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Books`;
 const PAGES_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&sheet=Pages`;
