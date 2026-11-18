@@ -1102,10 +1102,10 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
       <!-- Split Screen Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 items-stretch bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
         
-        <!-- Left Sidebar: Chapter Navigation (Top-aligned with H1 title) -->
-        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 bg-slate-50/70">
+        <!-- Left Sidebar: Chapter Navigation (Positioned cleanly near top edge of sidebar) -->
+        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-5 pb-6 sm:px-7 sm:pt-6 bg-slate-50/70">
           <div class="sticky top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-tight">
+            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-none">
               Playbook Directory
             </h4>
             <div class="space-y-1.5">
