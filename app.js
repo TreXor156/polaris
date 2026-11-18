@@ -28,6 +28,8 @@ let libraryPages = [];
 let activeTagFilter = null;
 let activeCategoryFilter = "ALL";
 let currentUser = null;
+let showAllTags = false;
+const MAX_VISIBLE_TAGS = 12; 
 
 // ----------------------------------------------------------------------------
 // 3. APPLICATION INITIALIZATION & IDENTITY GATE
@@ -285,40 +287,74 @@ function populatePopularTags() {
   const tagsContainer = document.getElementById("dynamicTagsContainer");
   if (!tagsContainer) return;
 
-  const rawTags = libraryPages.flatMap(p =>
-    (p.tags || "").split(",").map(t => t.trim().replace(/^#/, "").toLowerCase()).filter(Boolean)
-  );
-  const distinctTags = [...new Set(rawTags)];
+  // 1. Count frequency of each tag across all pages
+  const tagCounts = new Map();
+  libraryPages.forEach(p => {
+    (p.tags || "")
+      .split(",")
+      .map(t => t.trim().replace(/^#/, "").toLowerCase())
+      .filter(Boolean)
+      .forEach(tag => {
+        tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+      });
+  });
 
-  if (distinctTags.length === 0) {
+  // 2. Sort tags by usage count descending (then alphabetically on ties)
+  const sortedTags = Array.from(tagCounts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag]) => tag);
+
+  if (sortedTags.length === 0) {
     tagsContainer.innerHTML = `<span class="text-[#F8FAFC] font-medium">Popular Tags:</span> <span class="text-xs text-slate-300 font-mono">No tags recorded.</span>`;
     return;
   }
 
+  // 3. Slice to top N unless expanded (or if activeTagFilter is outside top N)
+  const hasMoreTags = sortedTags.length > MAX_VISIBLE_TAGS;
+  const activeIdx = activeTagFilter
+    ? sortedTags.findIndex(t => t.toLowerCase() === activeTagFilter.toLowerCase())
+    : -1;
+  const isExpanded = showAllTags || activeIdx >= MAX_VISIBLE_TAGS;
+
+  const visibleTags = isExpanded ? sortedTags : sortedTags.slice(0, MAX_VISIBLE_TAGS);
+  const hiddenCount = sortedTags.length - MAX_VISIBLE_TAGS;
+
+  const pillsHtml = visibleTags.map(tag => {
+    const isSelected = activeTagFilter && activeTagFilter.toLowerCase() === tag.toLowerCase();
+
+    // WCAG AA (>= 4.5:1) high-contrast pills against dark navy background
+    const pillClasses = isSelected
+      ? "bg-[#3B82F6] hover:bg-blue-500 text-white border border-blue-300 font-semibold shadow-sm ring-2 ring-blue-400/40"
+      : "bg-[#1E293B] hover:bg-slate-700 text-[#F8FAFC] border border-slate-600 hover:border-slate-400 font-medium";
+
+    const checkIcon = isSelected
+      ? `<svg class="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.415 0l-3.25-3.25a1 1 0 011.414-1.42l2.543 2.544 6.543-6.544a1 1 0 011.415 0z" clip-rule="evenodd"/></svg>`
+      : "";
+
+    return `
+      <button type="button"
+              aria-pressed="${isSelected}"
+              class="tag-filter-btn inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-mono text-xs transition cursor-pointer ${pillClasses}"
+              data-tag="${tag}">
+        ${checkIcon}
+        <span>#${tag}</span>
+      </button>
+    `;
+  }).join("");
+
+  const toggleButtonHtml = hasMoreTags
+    ? `<button type="button"
+               id="toggleTagsBtn"
+               aria-expanded="${isExpanded}"
+               class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full font-mono text-xs font-semibold bg-indigo-950/90 hover:bg-indigo-900 text-indigo-200 border border-indigo-400/40 transition cursor-pointer">
+         ${isExpanded ? "&minus; Show less" : `+ Show all (${hiddenCount} more)`}
+       </button>`
+    : "";
+
   tagsContainer.innerHTML = `
     <span class="text-[#F8FAFC] font-medium mr-1">Popular Tags:</span>
-    ${distinctTags.map(tag => {
-      const isSelected = activeTagFilter && activeTagFilter.toLowerCase() === tag.toLowerCase();
-
-      // WCAG AA (>= 4.5:1) high-contrast pills against dark navy background
-      const pillClasses = isSelected
-        ? "bg-[#3B82F6] hover:bg-blue-500 text-white border border-blue-300 font-semibold shadow-sm ring-2 ring-blue-400/40"
-        : "bg-[#1E293B] hover:bg-slate-700 text-[#F8FAFC] border border-slate-600 hover:border-slate-400 font-medium";
-
-      const checkIcon = isSelected
-        ? `<svg class="w-3.5 h-3.5 text-white shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 5.29a1 1 0 010 1.42l-7.25 7.25a1 1 0 01-1.415 0l-3.25-3.25a1 1 0 011.414-1.42l2.543 2.544 6.543-6.544a1 1 0 011.415 0z" clip-rule="evenodd"/></svg>`
-        : "";
-
-      return `
-        <button type="button"
-                aria-pressed="${isSelected}"
-                class="tag-filter-btn inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full font-mono text-xs transition cursor-pointer ${pillClasses}" 
-                data-tag="${tag}">
-          ${checkIcon}
-          <span>#${tag}</span>
-        </button>
-      `;
-    }).join("")}
+    ${pillsHtml}
+    ${toggleButtonHtml}
   `;
 
   tagsContainer.querySelectorAll(".tag-filter-btn").forEach(btn => {
@@ -329,6 +365,14 @@ function populatePopularTags() {
       applyFilters();
     });
   });
+
+  const toggleBtn = document.getElementById("toggleTagsBtn");
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", () => {
+      showAllTags = !isExpanded;
+      populatePopularTags();
+    });
+  }
 }
 
 function populateCategories() {
@@ -420,6 +464,7 @@ function resetAllFilters() {
 
   activeTagFilter = null;
   activeCategoryFilter = "ALL";
+  showAllTags = false;
 
   populatePopularTags();
   populateCategories();
