@@ -1083,7 +1083,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
   container.innerHTML = `
     <div class="max-w-7xl mx-auto w-full pt-2">
       
-      <!-- Top Breadcrumb Trail (Consistent "Chapter" naming, no duplicate Page X of Y) -->
+      <!-- Top Breadcrumb Trail + Top-Right Chapter Counter -->
       <nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2 text-xs text-[#475569]">
           <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
@@ -1094,15 +1094,18 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
           <span class="text-[#475569]">/</span>
           <span class="font-mono text-[#475569] font-medium">Chapter ${chapterNum}</span>
         </div>
+        <div class="text-xs font-mono font-medium text-[#475569]">
+          Chapter ${chapterNum} of ${pagesInBook.length}
+        </div>
       </nav>
 
       <!-- Split Screen Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 items-stretch bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
         
-        <!-- Left Sidebar: Chapter Navigation (Aligned horizontally with H1 page title) -->
-        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-6 pb-6 sm:px-8 md:pt-9 bg-slate-50/70">
+        <!-- Left Sidebar: Chapter Navigation (Top-aligned with H1 title) -->
+        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 bg-slate-50/70">
           <div class="sticky top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-none">
+            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-tight">
               Playbook Directory
             </h4>
             <div class="space-y-1.5">
@@ -1143,8 +1146,6 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
                 <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Ver:</strong><span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span></span>
                 <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Reviewed:</strong><span class="font-bold text-polaris-text-heading">${lastReviewed}</span></span>
                 <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Next Review:</strong><span class="font-bold text-polaris-text-heading">${nextReview}</span></span>
-                <span class="text-slate-300 hidden sm:inline">|</span>
-                <span class="font-semibold text-[#475569]">Chapter ${chapterNum} of ${pagesInBook.length}</span>
               </div>
             </div>
 
