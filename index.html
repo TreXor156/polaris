@@ -179,11 +179,11 @@
       <!-- Dynamic Badges Section -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h4 class="font-display text-xs font-bold uppercase tracking-wider text-slate-500">Earned Stamps & Milestones</h4>
+          <h4 class="font-display text-xs font-bold uppercase tracking-wider text-slate-500">Earned Stamps &amp; Milestones</h4>
           <span id="syncStatusIndicator" class="text-[11px] font-mono text-emerald-600">● Synced to Sheets</span>
         </div>
         <div id="badgesContainer" class="space-y-2.5">
-          <!-- Populated dynamically by renderLibraryCard() -->
+          <!-- Populated dynamically by openLibraryCard() -->
         </div>
       </div>
     </div>
@@ -219,8 +219,9 @@
       <div class="flex items-center gap-3">
         <!-- Creator & Admin Only: Quick Ingest Button -->
         <a 
-          href="https://docs.google.com/forms" 
+          href="https://docs.google.com/forms/d/e/1FAIpQLSfalL76p8gSHJrPcumYS4TB3pk9NUZPmq8S7sMvuepZrPSgOQ/viewform?usp=headers" 
           target="_blank" 
+          rel="noopener noreferrer"
           data-role="CREATOR,ADMIN"
           class="hidden text-xs font-semibold bg-polaris-primary-light text-polaris-primary-container hover:bg-indigo-100 border border-indigo-200 px-3.5 py-2 rounded-lg transition whitespace-nowrap"
         >
@@ -247,7 +248,7 @@
   <section class="hero-section bg-gradient-to-br from-polaris-hero-indigo via-polaris-hero-dark to-slate-950 text-white py-14 px-4 border-b border-slate-800">
     <div class="max-w-4xl mx-auto text-center space-y-5">
       <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-        Find Playbooks, Scripts & Policies
+        Find Playbooks, Scripts &amp; Policies
       </h1>
       <p class="text-slate-300 text-sm sm:text-base max-w-2xl mx-auto font-normal leading-relaxed">
         Instant access to verified sales enablement guides, battlecards, and compliance procedures engineered for high-velocity revenue teams.
@@ -300,32 +301,64 @@
           <p class="text-xs text-polaris-text-muted mt-0.5 font-normal">Add content via Google Forms to publish to the team library.</p>
         </div>
       </div>
-      <a href="https://docs.google.com/forms" target="_blank" class="text-xs font-semibold bg-polaris-primary-light text-polaris-primary-container hover:bg-indigo-100 border border-indigo-200 px-4 py-2.5 rounded-lg transition whitespace-nowrap">
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLSfalL76p8gSHJrPcumYS4TB3pk9NUZPmq8S7sMvuepZrPSgOQ/viewform?usp=headers" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold bg-polaris-primary-light text-polaris-primary-container hover:bg-indigo-100 border border-indigo-200 px-4 py-2.5 rounded-lg transition whitespace-nowrap">
         + Add Playbook ↗
       </a>
     </div>
   </main>
 
-  <!-- Footer -->
-  <footer class="bg-white border-t border-polaris-border-subtle py-6 text-center text-xs text-polaris-text-muted font-normal">
-    Project Polaris • Internal Enablement Platform • 
-    <button type="button"
-            onclick="openArchitectureModal()"
-            class="font-semibold text-polaris-primary-container hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 hover:decoration-indigo-600 transition cursor-pointer inline-flex items-center gap-1">
-      <span>Powered by GitHub Pages &amp; Google Sheets</span>
-      <span class="text-[10px] font-mono bg-polaris-primary-light text-polaris-primary-container px-1.5 py-0.5 rounded border border-indigo-100">How It Works</span>
-    </button>
+  <!-- ======================================================================= -->
+  <!-- 6. TWO-ROW PORTFOLIO FOOTER                                             -->
+  <!-- ======================================================================= -->
+  <footer class="bg-white border-t border-polaris-border-subtle py-8 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-7xl mx-auto flex flex-col items-center justify-center gap-4 text-center">
+
+      <!-- Top Row: How It Works button | LinkedIn | Contact (Email) -->
+      <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-5 text-xs">
+        <button type="button"
+                onclick="openArchitectureModal()"
+                class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg font-semibold bg-polaris-primary-light hover:bg-indigo-100 text-polaris-primary-container border border-indigo-200 shadow-2xs transition cursor-pointer">
+          <span>⚡</span>
+          <span>How It Works</span>
+        </button>
+
+        <span class="hidden sm:inline text-slate-300" aria-hidden="true">|</span>
+
+        <a href="https://www.linkedin.com/in/nil-amirul-hamzah"
+           target="_blank"
+           rel="noopener noreferrer"
+           class="inline-flex items-center gap-1.5 font-semibold text-polaris-text-heading hover:text-polaris-primary-container transition">
+          <span>LinkedIn</span>
+          <span aria-hidden="true">&nearr;</span>
+        </a>
+
+        <span class="text-slate-300" aria-hidden="true">|</span>
+
+        <a href="mailto:nilamirul@hotmail.com"
+           class="inline-flex items-center gap-1.5 font-semibold text-polaris-text-heading hover:text-polaris-primary-container transition">
+          <span>Contact (Email)</span>
+        </a>
+      </div>
+
+      <!-- Bottom Row: Project Polaris · Built on GitHub Pages & Google Sheets · [Disclaimer] -->
+      <p class="text-[11px] text-[#475569] leading-relaxed max-w-2xl">
+        <span class="font-semibold text-polaris-text-heading">Project Polaris</span>
+        &middot; Built on GitHub Pages &amp; Google Sheets &middot;
+        <span>Portfolio demonstration project built with sample enablement data; not affiliated with any live commercial organization.</span>
+      </p>
+
+    </div>
   </footer>
 
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <!-- Serverless Architecture ("How It Works") Modal -->
+  <!-- ======================================================================= -->
+  <!-- 7. SERVERLESS ARCHITECTURE ("HOW IT WORKS") MODAL                       -->
+  <!-- ======================================================================= -->
   <div id="architectureModal"
        role="dialog"
        aria-modal="true"
        aria-labelledby="archModalTitle"
        onclick="if (event.target === this) closeArchitectureModal()"
        class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-    
     <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-3 max-w-2xl w-full overflow-hidden my-8">
       
       <!-- Modal Header -->
@@ -382,9 +415,7 @@
               <div class="font-display text-xs font-bold text-polaris-primary-container mt-1">GitHub Pages</div>
               <div class="text-[10px] text-[#475569] mt-0.5">$0 Static Portal</div>
             </div>
-
           </div>
-
         </div>
 
         <!-- 4-Layer Architectural Breakdown -->
@@ -393,7 +424,7 @@
             <span class="w-6 h-6 rounded-md bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center font-bold shrink-0 mt-0.5">1</span>
             <div>
               <strong class="text-polaris-text-heading font-display">Content Intake (Google Forms):</strong>
-              Subject Matter Experts submit structured playbooks and markdown scripts via a standardized intake form—eliminating direct database edits and formatting errors[cite: 1, 2, 9].
+              Subject Matter Experts submit structured playbooks and markdown scripts via a standardized intake form—eliminating direct database edits and formatting errors.
             </div>
           </li>
 
@@ -401,7 +432,7 @@
             <span class="w-6 h-6 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold shrink-0 mt-0.5">2</span>
             <div>
               <strong class="text-polaris-text-heading font-display">Relational Database (Google Sheets):</strong>
-              Four normalized tables (<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Books</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Pages</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Users</code>, and <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">User_Progress</code>) act as a live headless CMS[cite: 3, 9], queried client-side via the Google Visualization JSON API[cite: 7].
+              Four normalized tables (<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Books</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Pages</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Users</code>, and <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">User_Progress</code>) act as a live headless CMS, queried client-side via the Google Visualization JSON API.
             </div>
           </li>
 
@@ -409,7 +440,7 @@
             <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shrink-0 mt-0.5">3</span>
             <div>
               <strong class="text-polaris-text-heading font-display">Automation &amp; Sync API (Google Apps Script):</strong>
-              Automates 90-day compliance review windows, enriches missing taxonomy tags using the Gemini API[cite: 1, 12], and exposes serverless <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doGet</code>/<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doPost</code> endpoints for role-based access and cross-device progress tracking[cite: 3].
+              Automates 90-day compliance review windows, enriches missing taxonomy tags using the Gemini API, and exposes serverless <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doGet</code>/<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doPost</code> endpoints for role-based access and cross-device progress tracking.
             </div>
           </li>
 
@@ -417,10 +448,9 @@
             <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-polaris-primary-container flex items-center justify-center font-bold shrink-0 mt-0.5">4</span>
             <div>
               <strong class="text-polaris-text-heading font-display">Frontend &amp; Hosting (GitHub Pages — $0/mo):</strong>
-              A responsive Tailwind CSS &amp; Vanilla JS single-page application served directly from GitHub Pages[cite: 4, 5], delivering instant search, markdown rendering, and Patron Card gamification with zero server costs[cite: 4, 9].
+              A responsive Tailwind CSS &amp; Vanilla JS single-page application served directly from GitHub Pages, delivering instant search, markdown rendering, and Patron Card gamification with zero server costs.
             </div>
           </li>
-
         </ul>
 
         <!-- Footer CTA -->
@@ -439,6 +469,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
