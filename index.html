@@ -33,7 +33,7 @@
               'border-subtle': '#E2E8F0',
               'text-heading': '#0F172A',
               'text-body': '#334155',
-              'text-muted': '#64748B',
+              'text-muted': '#475569',
               'progress-track': '#E2E8F0',
               accent: '#6366F1',
             }
@@ -308,7 +308,13 @@
 
   <!-- Footer -->
   <footer class="bg-white border-t border-polaris-border-subtle py-6 text-center text-xs text-polaris-text-muted font-normal">
-    Project Polaris • Internal Enablement Platform • Powered by GitHub Pages & Google Sheets
+    Project Polaris • Internal Enablement Platform • 
+    <button type="button"
+            onclick="openArchitectureModal()"
+            class="font-semibold text-polaris-primary-container hover:text-indigo-800 underline decoration-indigo-300 underline-offset-4 hover:decoration-indigo-600 transition cursor-pointer inline-flex items-center gap-1">
+      <span>Powered by GitHub Pages &amp; Google Sheets</span>
+      <span class="text-[10px] font-mono bg-polaris-primary-light text-polaris-primary-container px-1.5 py-0.5 rounded border border-indigo-100">How It Works</span>
+    </button>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>

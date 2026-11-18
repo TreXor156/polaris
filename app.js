@@ -749,6 +749,33 @@ function showStampToast(stampTitle, icon = "🏅") {
   }
 }
 
+/**
+ * Opens the "How It Works" serverless architecture modal.
+ */
+function openArchitectureModal() {
+  const modal = document.getElementById("architectureModal");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  document.body.classList.add("overflow-hidden");
+}
+
+/**
+ * Closes the "How It Works" serverless architecture modal.
+ */
+function closeArchitectureModal() {
+  const modal = document.getElementById("architectureModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.classList.remove("overflow-hidden");
+}
+
+// Allow closing with the Escape key
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    closeArchitectureModal();
+  }
+});
+
 
 // ----------------------------------------------------------------------------
 // 10. BOOKSHELF RENDERER
@@ -1158,3 +1185,5 @@ window.closeLibraryCard = closeLibraryCard;
 window.logoutUser = logoutUser;
 window.loginAsDemo = loginAsDemo;
 window.resetAllFilters = resetAllFilters;
+window.openArchitectureModal = openArchitectureModal;
+window.closeArchitectureModal = closeArchitectureModal;
