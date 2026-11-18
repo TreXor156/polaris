@@ -432,6 +432,13 @@ function togglePageCompletion(pageId, bookId, isChecked) {
 
   if (!targetBookId) return;
 
+  // 1. Snapshot unlocked stamps BEFORE updating progress
+  const prevStats = calculatePatronStats();
+  const previouslyUnlockedIds = new Set(
+    prevStats.badges.filter(b => b.unlocked).map(b => b.id)
+  );
+
+  // 2. Update reading progress in localStorage
   const progress = getReadingProgress();
   if (!progress[targetBookId]) {
     progress[targetBookId] = [];
@@ -448,7 +455,21 @@ function togglePageCompletion(pageId, bookId, isChecked) {
   localStorage.setItem("polaris_reading_progress", JSON.stringify(progress));
   updateNavPatronHeader();
 
-  // Background sync to Google Sheets User_Progress
+  // 3. Check if checking this chapter crossed a new stamp threshold
+  if (isChecked) {
+    const newStats = calculatePatronStats();
+    const newlyUnlocked = newStats.badges.filter(
+      b => b.unlocked && !previouslyUnlockedIds.has(b.id)
+    );
+
+    if (newlyUnlocked.length > 0) {
+      // Pick the highest-tier stamp unlocked on this action
+      const topStamp = newlyUnlocked[newlyUnlocked.length - 1];
+      showStampToast(topStamp.title, topStamp.icon);
+    }
+  }
+
+  // 4. Background sync to Google Sheets User_Progress
   const bookPages = libraryPages.filter(p => String(p.book_id || "").trim() === targetBookId);
   syncProgressToSheets(targetBookId, progress[targetBookId], bookPages.length);
 }
@@ -646,6 +667,73 @@ function closeLibraryCard() {
   document.getElementById("libraryCardBackdrop").classList.add("hidden");
   document.getElementById("libraryCardDrawer").classList.add("hidden");
 }
+
+/**
+ * Fires a bottom-right toast notification when a patron unlocks a new stamp.
+ * Clicking the toast opens the Patron Library Card drawer directly.
+ */
+function showStampToast(stampTitle, icon = "🏅") {
+  // Remove any existing stamp toast so multiple unlocks don't overlap awkwardly
+  const existingToast = document.getElementById("polarisStampToast");
+  if (existingToast) existingToast.remove();
+
+  const toast = document.createElement("div");
+  toast.id = "polarisStampToast";
+  toast.setAttribute("role", "status");
+  toast.setAttribute("aria-live", "polite");
+  toast.className = [
+    "fixed bottom-6 right-6 z-50 max-w-sm w-full sm:w-auto",
+    "bg-slate-900 text-white border border-slate-700/80 rounded-xl shadow-2xl",
+    "px-4 py-3.5 flex items-center gap-3.5 cursor-pointer",
+    "transform transition-all duration-300 translate-y-4 opacity-0"
+  ].join(" ");
+
+  toast.innerHTML = `
+    <div class="w-10 h-10 rounded-lg bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-xl shrink-0">
+      ${icon}
+    </div>
+    <div class="pr-2">
+      <p class="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+        New Library Milestone
+      </p>
+      <p class="text-xs font-semibold text-white leading-snug mt-0.5">
+        Stamp Unlocked: ${stampTitle} — Check your Patron Card
+      </p>
+    </div>
+    <button type="button" aria-label="Dismiss notification" class="text-slate-400 hover:text-white text-sm font-bold pl-1 cursor-pointer">
+      &times;
+    </button>
+  `;
+
+  // Clicking the toast opens the Patron Library Card; clicking × just dismisses it
+  toast.addEventListener("click", (e) => {
+    if (e.target.closest("button")) {
+      dismissToast();
+      return;
+    }
+    dismissToast();
+    openLibraryCard();
+  });
+
+  document.body.appendChild(toast);
+
+  // Trigger slide-up entrance animation
+  requestAnimationFrame(() => {
+    toast.classList.remove("translate-y-4", "opacity-0");
+    toast.classList.add("translate-y-0", "opacity-100");
+  });
+
+  // Auto-dismiss after 5 seconds
+  const autoHideTimer = setTimeout(dismissToast, 5000);
+
+  function dismissToast() {
+    clearTimeout(autoHideTimer);
+    toast.classList.remove("translate-y-0", "opacity-100");
+    toast.classList.add("translate-y-4", "opacity-0");
+    setTimeout(() => toast.remove(), 300);
+  }
+}
+
 
 // ----------------------------------------------------------------------------
 // 10. BOOKSHELF RENDERER
