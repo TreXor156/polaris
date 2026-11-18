@@ -1083,7 +1083,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
   container.innerHTML = `
     <div class="max-w-7xl mx-auto w-full pt-2">
       
-      <!-- Top Breadcrumb Trail -->
+      <!-- Top Breadcrumb Trail (Consistent "Chapter" naming, no duplicate Page X of Y) -->
       <nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2 text-xs text-[#475569]">
           <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
@@ -1094,16 +1094,13 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
           <span class="text-[#475569]">/</span>
           <span class="font-mono text-[#475569] font-medium">Chapter ${chapterNum}</span>
         </div>
-        <div class="text-xs font-mono font-medium text-[#475569]">
-          Page ${chapterNum} of ${pagesInBook.length}
-        </div>
       </nav>
 
       <!-- Split Screen Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 items-stretch bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
         
-        <!-- Left Sidebar: Chapter Navigation (Naturally top-aligned with H1 title) -->
-        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 bg-slate-50/70">
+        <!-- Left Sidebar: Chapter Navigation (Aligned horizontally with H1 page title) -->
+        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-6 pb-6 sm:px-8 md:pt-9 bg-slate-50/70">
           <div class="sticky top-24">
             <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-none">
               Playbook Directory
@@ -1117,7 +1114,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
         <!-- Right Pane: Main Article Content -->
         <article class="md:col-span-9 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
           <div class="space-y-6">
-            <!-- Page Heading (Starts immediately at top of article pane) -->
+            <!-- Page Heading -->
             <div>
               <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2 leading-tight">${page.title || 'Untitled Page'}</h1>
               <p class="text-[#475569] text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
@@ -1134,36 +1131,25 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
             </div>
           </div>
 
-          <div class="space-y-6 pt-6">
-            <!-- Document Control Governance Footer Block (Moved below article body, right above tags) -->
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 text-xs text-polaris-text-body">
-              <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 mb-3">
-                <div class="flex items-center gap-2.5">
-                  <span class="font-display text-[11px] font-bold uppercase tracking-wider text-[#475569]">Document Control</span>
-                  ${statusBadge}
-                </div>
-                <span class="font-mono text-[11px] font-medium text-[#475569]">Chapter ${chapterNum} of ${pagesInBook.length}</span>
+          <div class="space-y-4 pt-6">
+            <!-- Compact Single-Strip Document Control Governance Bar -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs">
+              <div class="flex items-center gap-2.5">
+                <span class="font-display text-[10px] font-bold uppercase tracking-wider text-[#475569]">Document Control</span>
+                ${statusBadge}
               </div>
 
-              <!-- Governance Fields Matching Database -->
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-[11px]">
-                <div>
-                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Version</span>
-                  <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
-                </div>
-                <div>
-                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
-                  <span class="font-bold text-polaris-text-heading">${lastReviewed}</span>
-                </div>
-                <div>
-                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Next Review Date</span>
-                  <span class="font-bold text-polaris-text-heading">${nextReview}</span>
-                </div>
+              <div class="flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-[#475569]">
+                <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Ver:</strong><span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span></span>
+                <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Reviewed:</strong><span class="font-bold text-polaris-text-heading">${lastReviewed}</span></span>
+                <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Next Review:</strong><span class="font-bold text-polaris-text-heading">${nextReview}</span></span>
+                <span class="text-slate-300 hidden sm:inline">|</span>
+                <span class="font-semibold text-[#475569]">Chapter ${chapterNum} of ${pagesInBook.length}</span>
               </div>
             </div>
 
             <!-- Utility Actions & Page Tags -->
-            <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div class="flex items-center gap-4 text-xs text-[#475569]">
                 <button type="button" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                   📋 Copy Link
@@ -1180,7 +1166,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
             </div>
 
             <!-- Bottom Return Navigation + Grouped Completion & Next Chapter Actions -->
-            <div class="pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="pt-5 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer self-start sm:self-auto">
                 &larr; Back to Bookshelf
               </button>
