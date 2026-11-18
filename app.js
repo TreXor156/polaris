@@ -411,6 +411,21 @@ function applyFilters() {
   renderBookshelf(filtered);
 }
 
+/**
+ * Clears the search box, active tag pill, and category tab back to defaults.
+ */
+function resetAllFilters() {
+  const searchInput = document.getElementById("globalSearchInput");
+  if (searchInput) searchInput.value = "";
+
+  activeTagFilter = null;
+  activeCategoryFilter = "ALL";
+
+  populatePopularTags();
+  populateCategories();
+  applyFilters();
+}
+
 // ----------------------------------------------------------------------------
 // 8. MANUAL COMPLETION TRACKING & CROSS-DEVICE SHEETS SYNC
 // ----------------------------------------------------------------------------
@@ -638,10 +653,10 @@ function openLibraryCard() {
   badgesContainer.innerHTML = stats.badges.map(b => {
     const cardStyle = b.unlocked
       ? "bg-emerald-50/70 border-emerald-200 text-polaris-text-heading"
-      : "bg-slate-50 border-slate-200 text-slate-400 opacity-70";
+      : "bg-slate-50 border-slate-200 text-[#475569]";
     const statusPill = b.unlocked
       ? `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Unlocked</span>`
-      : `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Locked</span>`;
+      : `<span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-200/80 text-[#475569] border border-slate-300">Locked</span>`;
 
     return `
       <div class="p-3.5 rounded-xl border ${cardStyle} flex items-center justify-between gap-3 transition">
@@ -650,8 +665,8 @@ function openLibraryCard() {
             ${b.unlocked ? b.icon : "🔒"}
           </div>
           <div>
-            <h5 class="font-display text-xs font-bold">${b.title}</h5>
-            <p class="text-[11px] leading-snug mt-0.5">${b.desc}</p>
+            <h5 class="font-display text-xs font-bold text-polaris-text-heading">${b.title}</h5>
+            <p class="text-[11px] text-[#475569] leading-snug mt-0.5">${b.desc}</p>
           </div>
         </div>
         ${statusPill}
@@ -758,10 +773,18 @@ function renderBookshelf(books) {
 
   if (books.length === 0) {
     grid.innerHTML = `
-      <div class="col-span-full py-16 text-center text-polaris-text-muted bg-white rounded-2xl border border-polaris-border-subtle shadow-elevation-1">
+      <div class="col-span-full py-16 px-6 text-center bg-white rounded-2xl border border-polaris-border-subtle shadow-elevation-1">
         <span class="text-3xl">🔍</span>
         <p class="font-display text-base font-semibold text-polaris-text-heading mt-2">No matching playbooks found</p>
-        <p class="text-xs text-polaris-text-muted mt-1 font-normal">Try adjusting your query, switching categories, or clearing tags.</p>
+        <p class="text-xs text-[#475569] mt-1 font-normal max-w-md mx-auto">
+          Try adjusting your search keywords, switching categories, or clearing active tag filters.
+        </p>
+        <button type="button"
+                onclick="resetAllFilters()"
+                class="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-polaris-primary-container hover:bg-indigo-700 text-white shadow-sm transition cursor-pointer">
+          <span>↺</span>
+          <span>Reset Search &amp; Filters</span>
+        </button>
       </div>`;
     return;
   }
@@ -780,9 +803,10 @@ function renderBookshelf(books) {
     const rawBookStatus = (book.status || "ACTIVE").trim().toUpperCase();
     const isBookActive = rawBookStatus === "ACTIVE";
 
+    // High-contrast Inactive status pill (#475569)
     const statusPill = isBookActive
       ? `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Active</span>`
-      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Inactive</span>`;
+      : `<span class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569] bg-slate-100 border border-slate-300 px-3 py-1 rounded-full"><span class="w-1.5 h-1.5 rounded-full bg-[#475569]"></span> Inactive</span>`;
 
     const progressLabelLeft = stats.isCompleted
       ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
@@ -795,9 +819,10 @@ function renderBookshelf(books) {
     const barFillColor = stats.isCompleted ? "bg-emerald-500" : "bg-polaris-primary-container";
     const barTrackBorder = stats.isCompleted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-polaris-progress-track";
 
+    // High-contrast progress label row (#475569)
     const progressBlock = `
       <div class="mt-4 pt-3 border-t border-polaris-border-subtle">
-        <div class="flex justify-between items-center text-xs text-polaris-text-muted mb-1.5 font-medium">
+        <div class="flex justify-between items-center text-xs text-[#475569] mb-1.5 font-medium">
           ${progressLabelLeft}
           ${progressLabelRight}
         </div>
@@ -812,14 +837,15 @@ function renderBookshelf(books) {
 
     const titleClasses = isBookActive
       ? "font-display font-semibold text-polaris-text-heading text-lg leading-snug mb-2 group-hover:text-polaris-primary-container cursor-pointer transition"
-      : "font-display font-semibold text-slate-500 text-lg leading-snug mb-2 cursor-not-allowed";
+      : "font-display font-semibold text-[#475569] text-lg leading-snug mb-2 cursor-not-allowed";
 
+    // High-contrast disabled page button (#475569)
     const pageActionButton = isBookActive
       ? `<button type="button" ${actionClickAttr} class="inline-flex items-center gap-1.5 text-xs font-semibold text-polaris-primary-container bg-polaris-primary-light hover:bg-indigo-100 border border-indigo-200 px-3.5 py-1 rounded-full transition cursor-pointer">
-           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} →
+           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
          </button>`
-      : `<button type="button" disabled aria-disabled="true" class="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400 bg-slate-100 border border-slate-200 px-3.5 py-1 rounded-full cursor-not-allowed opacity-75 select-none">
-           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} →
+      : `<button type="button" disabled aria-disabled="true" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569] bg-slate-100 border border-slate-300 px-3.5 py-1 rounded-full cursor-not-allowed select-none">
+           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
          </button>`;
 
     const cardBorderClasses = isBookActive
@@ -830,7 +856,7 @@ function renderBookshelf(books) {
       <div class="${cardBorderClasses}">
         <div>
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm ${isBookActive ? 'bg-polaris-primary-light text-polaris-primary-container border border-indigo-100' : 'bg-slate-200/70 text-slate-600 border border-slate-300/60'} font-sans">
+            <span class="text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-sm ${isBookActive ? 'bg-polaris-primary-light text-polaris-primary-container border border-indigo-100' : 'bg-slate-200/70 text-[#475569] border border-slate-300/60'} font-sans">
               ${book.category || "General"}
             </span>
           </div>
@@ -985,18 +1011,18 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
   container.innerHTML = `
     <div class="max-w-7xl mx-auto w-full pt-2">
       
-      <!-- Top Breadcrumb Trail (Replaces duplicate top Back button) -->
+      <!-- Top Breadcrumb Trail -->
       <nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2 text-xs text-polaris-text-muted">
+        <div class="flex flex-wrap items-center gap-2 text-xs text-[#475569]">
           <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
             Bookshelf
           </button>
-          <span class="text-slate-400">/</span>
+          <span class="text-[#475569]">/</span>
           <span class="font-medium text-polaris-text-heading truncate max-w-xs sm:max-w-md">${bookTitle}</span>
-          <span class="text-slate-400">/</span>
-          <span class="font-mono text-slate-500">Chapter ${chapterNum}</span>
+          <span class="text-[#475569]">/</span>
+          <span class="font-mono text-[#475569] font-medium">Chapter ${chapterNum}</span>
         </div>
-        <div class="text-xs font-mono text-slate-500">
+        <div class="text-xs font-mono font-medium text-[#475569]">
           Page ${chapterNum} of ${pagesInBook.length}
         </div>
       </nav>
@@ -1007,7 +1033,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
         <!-- Left Sidebar: Chapter Navigation -->
         <aside class="md:col-span-3 border-r border-polaris-border-subtle p-5 bg-slate-50/70">
           <div class="sticky top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Playbook Directory</h4>
+            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3">Playbook Directory</h4>
             <div class="space-y-1">
               ${sidebarLinks}
             </div>
@@ -1017,25 +1043,25 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
         <!-- Right Pane: Main Article Content -->
         <article class="md:col-span-9 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
           <div class="space-y-6">
-            <!-- Document Control Governance Header (Completion action moved to footer) -->
+            <!-- Document Control Governance Header -->
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs text-polaris-text-body">
               <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
                 ${statusBadge}
-                <span class="font-mono text-[11px] text-slate-500">Chapter ${chapterNum} of ${pagesInBook.length}</span>
+                <span class="font-mono text-[11px] font-medium text-[#475569]">Chapter ${chapterNum} of ${pagesInBook.length}</span>
               </div>
-              
+
               <!-- Governance Fields Matching Database -->
               <div class="grid grid-cols-3 gap-4 font-mono text-[11px]">
                 <div>
-                  <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Version</span>
+                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Version</span>
                   <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
                 </div>
                 <div>
-                  <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
+                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
                   <span class="font-bold text-polaris-text-heading">${lastReviewed}</span>
                 </div>
                 <div>
-                  <span class="block text-slate-500 font-sans uppercase text-[9px] font-bold">Next Review Date</span>
+                  <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Next Review Date</span>
                   <span class="font-bold text-polaris-text-heading">${nextReview}</span>
                 </div>
               </div>
@@ -1044,7 +1070,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
             <!-- Page Heading -->
             <div>
               <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2">${page.title || 'Untitled Page'}</h1>
-              <p class="text-polaris-text-muted text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
+              <p class="text-[#475569] text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
             </div>
 
             <!-- Body Content Area (Parsed Markdown) -->
@@ -1061,7 +1087,7 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
           <div class="space-y-6 pt-4">
             <!-- Utility Actions & Page Tags -->
             <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div class="flex items-center gap-4 text-xs text-polaris-text-muted">
+              <div class="flex items-center gap-4 text-xs text-[#475569]">
                 <button type="button" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                   📋 Copy Link
                 </button>
@@ -1071,33 +1097,33 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
                 ${suggestEditHtml}
               </div>
 
-              <!-- Page Tags -->
               <div>
                 ${tagsHtml}
               </div>
             </div>
 
-            <!-- Bottom Footer: Single Left Back Link + Grouped Right Completion & Next Chapter Actions -->
-            <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer inline-flex items-center gap-1 self-start sm:self-auto">
+            <!-- Bottom Return Navigation + Grouped Completion & Next Chapter Actions -->
+            <div class="pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <button type="button" onclick="exitReaderView()" class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer self-start sm:self-auto">
                 &larr; Back to Bookshelf
               </button>
 
+              <!-- Side-by-side Grouped Footer Actions -->
               <div class="flex flex-wrap items-center gap-3 self-end sm:self-auto">
-                <!-- Relocated Completion Checkbox Action -->
-                <label for="completionToggle"
-                       class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold cursor-pointer select-none transition ${isPageDone ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'}">
-                  <input 
-                    type="checkbox" 
-                    id="completionToggle"
-                    ${isPageDone ? 'checked' : ''} 
-                    class="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600 focus:ring-emerald-500" 
+                <label class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold border cursor-pointer transition select-none ${
+                  isPageDone
+                    ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+                    : "bg-slate-50 hover:bg-slate-100 border-slate-300 text-polaris-text-heading"
+                }">
+                  <input
+                    type="checkbox"
+                    ${isPageDone ? "checked" : ""}
+                    class="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                     onchange="handleReaderCompletionToggle('${cleanPageId}', '${activeBookId}', this.checked)"
                   >
-                  <span>${isPageDone ? 'Completed' : 'Mark as Completed'}</span>
+                  <span>${isPageDone ? "Completed" : "Mark as Completed"}</span>
                 </label>
 
-                <!-- Side-by-Side Next Chapter Action -->
                 ${nextChapterButtonHtml}
               </div>
             </div>
@@ -1131,3 +1157,4 @@ window.openLibraryCard = openLibraryCard;
 window.closeLibraryCard = closeLibraryCard;
 window.logoutUser = logoutUser;
 window.loginAsDemo = loginAsDemo;
+window.resetAllFilters = resetAllFilters;
