@@ -318,6 +318,127 @@
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- Serverless Architecture ("How It Works") Modal -->
+  <div id="architectureModal"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="archModalTitle"
+       onclick="if (event.target === this) closeArchitectureModal()"
+       class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+    
+    <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-3 max-w-2xl w-full overflow-hidden my-8">
+      
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-polaris-hero-indigo to-polaris-hero-dark text-white px-6 py-5 flex items-start justify-between gap-4">
+        <div>
+          <span class="text-[10px] font-mono uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200 border border-indigo-400/30">
+            Zero-Cost Serverless Architecture
+          </span>
+          <h3 id="archModalTitle" class="font-display text-xl font-bold mt-2">
+            How Project Polaris Works
+          </h3>
+          <p class="text-xs text-slate-300 mt-1">
+            An enterprise knowledge &amp; enablement engine engineered with $0 monthly hosting overhead.
+          </p>
+        </div>
+        <button type="button"
+                onclick="closeArchitectureModal()"
+                aria-label="Close modal"
+                class="text-slate-300 hover:text-white text-xl font-bold leading-none p-1 cursor-pointer">
+          &times;
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-6">
+        
+        <!-- Visual Architecture Pipeline Diagram -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4">
+          <div class="text-[10px] font-mono uppercase tracking-wider text-[#475569] font-bold mb-3 text-center">
+            End-to-End Data &amp; Enablement Flow
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-4 gap-2.5 items-center text-center">
+            <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs">
+              <div class="text-lg">📝</div>
+              <div class="font-display text-xs font-bold text-polaris-text-heading mt-1">Google Forms</div>
+              <div class="text-[10px] text-[#475569] mt-0.5">SME Intake</div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs">
+              <div class="text-lg">📊</div>
+              <div class="font-display text-xs font-bold text-polaris-text-heading mt-1">Google Sheets</div>
+              <div class="text-[10px] text-[#475569] mt-0.5">Relational CMS</div>
+            </div>
+
+            <div class="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs">
+              <div class="text-lg">⚡</div>
+              <div class="font-display text-xs font-bold text-polaris-text-heading mt-1">Apps Script</div>
+              <div class="text-[10px] text-[#475569] mt-0.5">API &amp; Sync Engine</div>
+            </div>
+
+            <div class="bg-indigo-50/80 border border-indigo-200 rounded-lg p-3 shadow-2xs">
+              <div class="text-lg">🚀</div>
+              <div class="font-display text-xs font-bold text-polaris-primary-container mt-1">GitHub Pages</div>
+              <div class="text-[10px] text-[#475569] mt-0.5">$0 Static Portal</div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- 4-Layer Architectural Breakdown -->
+        <ul class="space-y-3 text-xs text-polaris-text-body">
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-md bg-purple-50 border border-purple-200 text-purple-700 flex items-center justify-center font-bold shrink-0 mt-0.5">1</span>
+            <div>
+              <strong class="text-polaris-text-heading font-display">Content Intake (Google Forms):</strong>
+              Subject Matter Experts submit structured playbooks and markdown scripts via a standardized intake form—eliminating direct database edits and formatting errors[cite: 1, 2, 9].
+            </div>
+          </li>
+
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center justify-center font-bold shrink-0 mt-0.5">2</span>
+            <div>
+              <strong class="text-polaris-text-heading font-display">Relational Database (Google Sheets):</strong>
+              Four normalized tables (<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Books</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Pages</code>, <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">Users</code>, and <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">User_Progress</code>) act as a live headless CMS[cite: 3, 9], queried client-side via the Google Visualization JSON API[cite: 7].
+            </div>
+          </li>
+
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-md bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center font-bold shrink-0 mt-0.5">3</span>
+            <div>
+              <strong class="text-polaris-text-heading font-display">Automation &amp; Sync API (Google Apps Script):</strong>
+              Automates 90-day compliance review windows, enriches missing taxonomy tags using the Gemini API[cite: 1, 12], and exposes serverless <code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doGet</code>/<code class="font-mono text-[11px] bg-slate-100 px-1 rounded">doPost</code> endpoints for role-based access and cross-device progress tracking[cite: 3].
+            </div>
+          </li>
+
+          <li class="flex items-start gap-3">
+            <span class="w-6 h-6 rounded-md bg-indigo-50 border border-indigo-200 text-polaris-primary-container flex items-center justify-center font-bold shrink-0 mt-0.5">4</span>
+            <div>
+              <strong class="text-polaris-text-heading font-display">Frontend &amp; Hosting (GitHub Pages — $0/mo):</strong>
+              A responsive Tailwind CSS &amp; Vanilla JS single-page application served directly from GitHub Pages[cite: 4, 5], delivering instant search, markdown rendering, and Patron Card gamification with zero server costs[cite: 4, 9].
+            </div>
+          </li>
+
+        </ul>
+
+        <!-- Footer CTA -->
+        <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <span class="text-[11px] font-mono text-[#475569]">
+            Stack Cost: $0/month • Setup: Serverless
+          </span>
+          
+          <button type="button"
+                  onclick="closeArchitectureModal()"
+                  class="px-4 py-2 rounded-lg text-xs font-semibold bg-polaris-primary-container hover:bg-indigo-700 text-white transition cursor-pointer self-end sm:self-auto">
+            Got It
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
