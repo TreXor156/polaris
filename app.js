@@ -642,7 +642,7 @@ function calculatePatronStats() {
       id: "avid",
       icon: "🏅",
       title: "Avid Reader",
-      desc: "Complete 100% of any 1 playbook (Gold Stamp).",
+      desc: "Complete 100% of any 1 playbook.",
       unlocked: completedBooksCount >= 1
     },
     {
@@ -1100,13 +1100,15 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
       </nav>
 
       <!-- Split Screen Layout -->
-      <div class="grid grid-cols-1 md:grid-cols-12 bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
+      <div class="grid grid-cols-1 md:grid-cols-12 items-stretch bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
         
-        <!-- Left Sidebar: Chapter Navigation -->
-        <aside class="md:col-span-3 border-r border-polaris-border-subtle p-5 bg-slate-50/70">
+        <!-- Left Sidebar: Chapter Navigation (Top-edge aligned with Governance Header) -->
+        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 bg-slate-50/70">
           <div class="sticky top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3">Playbook Directory</h4>
-            <div class="space-y-1">
+            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-none">
+              Playbook Directory
+            </h4>
+            <div class="space-y-1.5">
               ${sidebarLinks}
             </div>
           </div>
