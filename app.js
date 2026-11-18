@@ -1102,8 +1102,8 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
       <!-- Split Screen Layout -->
       <div class="grid grid-cols-1 md:grid-cols-12 items-stretch bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 min-h-[600px] overflow-hidden">
         
-        <!-- Left Sidebar: Chapter Navigation (Aligned horizontally with H1 page title) -->
-        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-6 pb-6 sm:px-8 md:pt-[10.75rem] bg-slate-50/70">
+        <!-- Left Sidebar: Chapter Navigation (Naturally top-aligned with H1 title) -->
+        <aside class="md:col-span-3 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 bg-slate-50/70">
           <div class="sticky top-24">
             <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] mb-3 leading-none">
               Playbook Directory
@@ -1117,15 +1117,36 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
         <!-- Right Pane: Main Article Content -->
         <article class="md:col-span-9 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
           <div class="space-y-6">
-            <!-- Document Control Governance Header -->
-            <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs text-polaris-text-body">
-              <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
-                ${statusBadge}
+            <!-- Page Heading (Starts immediately at top of article pane) -->
+            <div>
+              <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2 leading-tight">${page.title || 'Untitled Page'}</h1>
+              <p class="text-[#475569] text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
+            </div>
+
+            <!-- Body Content Area (Parsed Markdown) -->
+            <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
+                        prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
+                        prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
+                        prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
+                        prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
+                        prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
+              ${renderMarkdownContent(page.body_markdown)}
+            </div>
+          </div>
+
+          <div class="space-y-6 pt-6">
+            <!-- Document Control Governance Footer Block (Moved below article body, right above tags) -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 text-xs text-polaris-text-body">
+              <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 mb-3">
+                <div class="flex items-center gap-2.5">
+                  <span class="font-display text-[11px] font-bold uppercase tracking-wider text-[#475569]">Document Control</span>
+                  ${statusBadge}
+                </div>
                 <span class="font-mono text-[11px] font-medium text-[#475569]">Chapter ${chapterNum} of ${pagesInBook.length}</span>
               </div>
 
               <!-- Governance Fields Matching Database -->
-              <div class="grid grid-cols-3 gap-4 font-mono text-[11px]">
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 font-mono text-[11px]">
                 <div>
                   <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Version</span>
                   <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
@@ -1141,26 +1162,8 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
               </div>
             </div>
 
-            <!-- Page Heading -->
-            <div>
-              <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading tracking-tight mb-2">${page.title || 'Untitled Page'}</h1>
-              <p class="text-[#475569] text-sm font-normal">Actionable guidelines and verified talk-tracks for frontline teams.</p>
-            </div>
-
-            <!-- Body Content Area (Parsed Markdown) -->
-            <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
-                        prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
-                        prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
-                        prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
-                        prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
-                        prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
-              ${renderMarkdownContent(page.body_markdown)}
-            </div>
-          </div>
-
-          <div class="space-y-6 pt-4">
             <!-- Utility Actions & Page Tags -->
-            <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div class="flex items-center gap-4 text-xs text-[#475569]">
                 <button type="button" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                   📋 Copy Link
