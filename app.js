@@ -614,7 +614,7 @@ function calculatePatronStats() {
       id: "novice",
       icon: "📖",
       title: "Novice Reader",
-      desc: "Complete at least 1 playbook page.",
+      desc: "Complete at least 1 playbook chapter.",
       unlocked: totalPagesRead >= 1
     },
     {
