@@ -215,11 +215,6 @@ function formatRoleLabel(role) {
 function updateNavPatronHeader() {
   if (!currentUser) return;
 
-  const deptPill = document.getElementById("navDeptPill");
-  if (deptPill) {
-    deptPill.innerText = `${currentUser.department} • ${formatRoleLabel(currentUser.role)}`;
-  }
-
   const badgeText = document.getElementById("navUserBadgeText");
   if (badgeText) {
     const firstName = currentUser.full_name.split(" ")[0];
@@ -544,7 +539,7 @@ function handleReaderCompletionToggle(pageId, bookId, isChecked) {
 
 async function syncProgressToSheets(bookId, pagesReadArray, totalPages) {
   if (!currentUser || !currentUser.user_id) return;
-  if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) return;
+  if (!WEB_APP_URL || WEB_APP_URL.includes("https://script.google.com/macros/s/AKfycbwKp3lgAXmIfLP84hm6vveNnO_xIFGJwRkjKOZMJFWAsrdbHJQU6-v0pz3i73z0J9In/exec")) return;
 
   try {
     await fetch(WEB_APP_URL, {
