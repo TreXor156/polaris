@@ -1091,12 +1091,12 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
       <nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-2 text-xs text-[#475569]">
           <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
-            Bookshelf
+            Playbook Library
           </button>
           <span class="text-[#475569]">/</span>
-          <span class="font-medium text-polaris-text-heading truncate max-w-xs sm:max-w-md">${bookTitle}</span>
+          <span class="font-medium text-polaris-text-heading truncate max-w-xs sm:max-w-md" title="${bookTitle.replace(/"/g, '&quot;')}">${bookTitle}</span>
           <span class="text-[#475569]">/</span>
-          <span class="font-mono text-[#475569] font-medium">Chapter ${chapterNum}</span>
+          <span class="text-[#475569] font-medium truncate max-w-xs sm:max-w-md" title="${(page.title || 'Untitled Page').replace(/"/g, '&quot;')}">${page.title || 'Untitled Page'}</span>
         </div>
         <div class="text-xs font-mono font-medium text-[#475569]">
           Chapter ${chapterNum} of ${pagesInBook.length}
