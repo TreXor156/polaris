@@ -999,12 +999,16 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
   if (ingestCallout) ingestCallout.classList.add("hidden");
   if (heroSection) heroSection.classList.add("hidden");
 
-  // Determine current chapter index, Previous Chapter, and Next Chapter targets
+  // Determine current chapter index & Next Chapter target
   const currentIdx = pagesInBook.findIndex(p => String(p.page_id || "").trim() === cleanPageId);
-  const prevPage = currentIdx > 0 ? pagesInBook[currentIdx - 1] : null;
   const nextPage = currentIdx >= 0 && currentIdx < pagesInBook.length - 1 ? pagesInBook[currentIdx + 1] : null;
   const bookTitle = currentBook ? currentBook.title : "Playbook";
-  const chapterNum = page.page_number || (currentIdx >= 0 ? currentIdx + 1 : 1);
+  const pageTitle = page.title || "Untitled Page";
+
+  // Playbook progress metrics for the Center Zone of the Floating Dock
+  const progressStats = calculateBookProgress(activeBookId, pagesInBook.length);
+  const chapterUnitLabel = pagesInBook.length === 1 ? "Chapter" : "Chapters";
+  const dockBarFillColor = progressStats.isCompleted ? "bg-emerald-500" : "bg-polaris-primary-container";
 
   // Left sidebar chapter directory (only visible chapters)
   const sidebarLinks = pagesInBook.map((p, idx) => {
@@ -1031,12 +1035,13 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
 
   const isPageDone = (getReadingProgress()[activeBookId] || []).includes(cleanPageId);
 
+  // Slim status pill (reduced vertical padding so it hugs the single-line bar)
   const rawStatus = (page.status || "PUBLISHED").toUpperCase();
   const statusBadge = rawStatus === "ARCHIVED"
-    ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-200 text-[#475569] border border-slate-300">ARCHIVED</span>`
+    ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold leading-none bg-slate-200 text-[#475569] border border-slate-300 shrink-0">ARCHIVED</span>`
     : rawStatus.includes("PENDING")
-      ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">⚠️ ${page.status}</span>`
-      : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">✓ ${page.status}</span>`;
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold leading-none bg-amber-100 text-amber-900 border border-amber-300 shrink-0">⚠️ ${page.status}</span>`
+      : `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold leading-none bg-emerald-100 text-emerald-900 border border-emerald-300 shrink-0">✓ ${page.status}</span>`;
 
   let lastReviewed = page.last_reviewed_date || "N/A";
   let nextReview = page.next_review_due;
@@ -1067,85 +1072,47 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
        </a>`
     : "";
 
-  // Governance Box: Hidden for Learners, visible for Creators & Admins
+  // Slim Single-Line Document Control Bar (Creators & Admins only; hidden for Learners)
   const governanceFooterHtml = isPrivilegedRole
     ? `
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 sm:p-5 text-xs text-polaris-text-body">
-        <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 mb-3">
+      <div class="bg-slate-50/80 border border-slate-200 rounded-lg px-3.5 py-1.5 flex items-center justify-between gap-4 text-[11px] text-[#475569] whitespace-nowrap overflow-x-auto">
+        <div class="flex items-center gap-2 shrink-0">
+          <span class="font-display text-[10px] font-bold uppercase tracking-wider text-[#475569]">Document Control</span>
           ${statusBadge}
-          <span class="font-mono text-[11px] font-medium text-[#475569]">Document Control</span>
         </div>
-        <div class="grid grid-cols-3 gap-4 font-mono text-[11px]">
-          <div>
-            <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Version</span>
-            <span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span>
-          </div>
-          <div>
-            <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Last Reviewed Date</span>
-            <span class="font-bold text-polaris-text-heading">${lastReviewed}</span>
-          </div>
-          <div>
-            <span class="block text-[#475569] font-sans uppercase text-[9px] font-bold">Next Review Date</span>
-            <span class="font-bold text-polaris-text-heading">${nextReview}</span>
-          </div>
+        <div class="flex items-center gap-4 font-mono shrink-0">
+          <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Ver:</strong><span class="font-bold text-polaris-text-heading">${page.version || 'v1.0'}</span></span>
+          <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Reviewed:</strong><span class="font-bold text-polaris-text-heading">${lastReviewed}</span></span>
+          <span><strong class="font-sans uppercase text-[9px] tracking-wider mr-1">Next Review:</strong><span class="font-bold text-polaris-text-heading">${nextReview}</span></span>
         </div>
       </div>
     `
     : "";
 
-  // Dynamic Bottom-Left Button: "Back to Library" on Page 1, "Previous Chapter" on Page 2+
-  const bottomLeftNavHtml = prevPage
-    ? `<button type="button"
-               onclick="viewPage('${String(prevPage.page_id).trim()}', '${activeBookId}')"
-               class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer inline-flex items-center gap-1 self-start sm:self-auto">
-         &larr; Previous Chapter
-       </button>`
-    : `<button type="button"
-               onclick="exitReaderView()"
-               class="text-xs text-polaris-primary-container font-semibold hover:underline cursor-pointer inline-flex items-center gap-1 self-start sm:self-auto">
-         &larr; Back to Library
-       </button>`;
-
-  // Side-by-Side Next Chapter Action
+  // Right Zone of Floating Dock: Purple Next Chapter button (single arrow) or Finish button
   const nextChapterButtonHtml = nextPage
     ? `<button type="button"
                onclick="viewPage('${String(nextPage.page_id).trim()}', '${activeBookId}')"
-               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-polaris-primary-container hover:bg-indigo-700 text-white shadow-sm transition cursor-pointer">
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-polaris-primary-container hover:bg-indigo-700 text-white shadow-sm transition cursor-pointer whitespace-nowrap">
          <span>Next Chapter</span>
-         <span>&rarr;</span>
+         <span aria-hidden="true">&rarr;</span>
        </button>`
     : `<button type="button"
                onclick="exitReaderView()"
-               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition cursor-pointer">
-         <span>Finish &amp; Return to Library</span>
-         <span>✓</span>
+               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-slate-900 hover:bg-slate-800 text-white shadow-sm transition cursor-pointer whitespace-nowrap">
+         <span>Finish</span>
+         <span aria-hidden="true">✓</span>
        </button>`;
 
   container.className = "block w-full";
   container.innerHTML = `
-    <div class="max-w-7xl mx-auto w-full">
+    <div class="max-w-7xl mx-auto w-full pb-24">
 
-      <!-- Top Breadcrumb Trail + Top-Right Chapter Counter -->
-      <nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div class="flex flex-wrap items-center gap-2 text-xs text-[#475569]">
-          <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
-            Playbook Library
-          </button>
-          <span class="text-[#475569]">/</span>
-          <span class="font-medium text-polaris-text-heading truncate max-w-xs sm:max-w-md" title="${bookTitle.replace(/"/g, '&quot;')}">${bookTitle}</span>
-          <span class="text-[#475569]">/</span>
-          <span class="text-[#475569] font-medium truncate max-w-xs sm:max-w-md" title="${(page.title || 'Untitled Page').replace(/"/g, '&quot;')}">${page.title || 'Untitled Page'}</span>
-        </div>
-        <div class="text-xs font-mono font-medium text-[#475569]">
-          Chapter ${chapterNum} of ${pagesInBook.length}
-        </div>
-      </nav>
+      <!-- Unified Continuous White Reader Card -->
+      <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 items-stretch">
 
-      <!-- Main Reader Card with Left Directory Sidebar -->
-      <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
-
-        <!-- Left Sidebar: Playbook Chapter Directory (Top-aligned with H1) -->
-        <aside class="md:col-span-3 bg-slate-50/70 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8">
+        <!-- Left Sidebar: Playbook Chapter Directory (Baseline-aligned with Breadcrumb) -->
+        <aside class="md:col-span-3 bg-slate-50/70 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-6 pb-8 sm:px-8 sm:pt-8">
           <div class="md:sticky md:top-24">
             <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] leading-tight mb-3">
               Playbook Directory
@@ -1156,37 +1123,50 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
           </div>
         </aside>
 
-        <!-- Right Pane: Main Article Content -->
-        <article class="md:col-span-9 p-6 sm:p-8 space-y-6">
+        <!-- Right Pane: Blended Breadcrumb + Chapter Content + Slim Footer Metadata -->
+        <article class="md:col-span-9 px-6 pt-6 pb-8 sm:px-8 sm:pt-8 flex flex-col justify-between space-y-6">
 
-          <!-- Page Heading -->
-          <div>
-            <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading leading-tight tracking-tight mb-2">
-              ${page.title || 'Untitled Page'}
-            </h1>
-            <p class="text-[#475569] text-sm font-normal">
-              Actionable guidelines and verified talk-tracks for frontline teams.
-            </p>
+          <div class="space-y-5">
+            <!-- Blended Breadcrumb Path (Top-aligned on exact baseline with Playbook Directory) -->
+            <nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-1.5 text-xs text-[#475569] leading-tight">
+              <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
+                Playbook Library
+              </button>
+              <span aria-hidden="true" class="text-[#475569]">&rsaquo;</span>
+              <span class="font-medium text-polaris-text-heading truncate max-w-[200px] sm:max-w-xs" title="${bookTitle.replace(/"/g, '&quot;')}">${bookTitle}</span>
+              <span aria-hidden="true" class="text-[#475569]">&rsaquo;</span>
+              <span class="text-[#475569] font-medium truncate max-w-[200px] sm:max-w-sm" title="${pageTitle.replace(/"/g, '&quot;')}">${pageTitle}</span>
+            </nav>
+
+            <!-- Chapter Heading -->
+            <div>
+              <h1 class="font-display text-2xl sm:text-3xl font-extrabold text-polaris-text-heading leading-tight tracking-tight mb-2">
+                ${pageTitle}
+              </h1>
+              <p class="text-[#475569] text-sm font-normal">
+                Actionable guidelines and verified talk-tracks for frontline teams.
+              </p>
+            </div>
+
+            <!-- Body Content Area -->
+            <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
+                        prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
+                        prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
+                        prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
+                        prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
+                        prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
+              ${renderMarkdownContent(page.body_markdown)}
+            </div>
           </div>
 
-          <!-- Body Content Area -->
-          <div class="prose prose-slate max-w-none text-polaris-text-body text-sm leading-relaxed font-sans
-                      prose-headings:font-display prose-headings:text-polaris-text-heading prose-headings:font-bold
-                      prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg prose-h3:mt-6 prose-h3:mb-2
-                      prose-p:my-3 prose-strong:text-polaris-text-heading prose-strong:font-semibold
-                      prose-blockquote:border-l-4 prose-blockquote:border-polaris-primary-container prose-blockquote:bg-polaris-primary-light/60 prose-blockquote:py-2 prose-blockquote:px-4 prose-blockquote:rounded-r-lg prose-blockquote:not-italic prose-blockquote:text-polaris-text-heading
-                      prose-ol:list-decimal prose-ol:pl-5 prose-ul:list-disc prose-ul:pl-5 prose-li:my-1">
-            ${renderMarkdownContent(page.body_markdown)}
-          </div>
+          <!-- Article Footer: Slim Document Control Bar + Utilities & Tags -->
+          <div class="space-y-4 pt-6">
 
-          <!-- Footer Metadata, Utilities & Grouped Navigation -->
-          <div class="space-y-6 pt-4">
-
-            <!-- Role-Gated Document Governance Box (Creators & Admins Only) -->
+            <!-- Slim Single-Line Document Control Bar (Creators & Admins Only) -->
             ${governanceFooterHtml}
 
-            <!-- Utility Actions & Page Tags -->
-            <div class="pt-4 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <!-- Utility Actions & Chapter Tags -->
+            <div class="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div class="flex items-center gap-4 text-xs text-[#475569]">
                 <button type="button" onclick="navigator.clipboard.writeText(window.location.href); alert('Link copied!');" class="hover:text-polaris-primary-container font-medium cursor-pointer inline-flex items-center gap-1">
                   📋 Copy Link
@@ -1197,36 +1177,64 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
                 ${suggestEditHtml}
               </div>
 
-              <!-- Page Tags -->
+              <!-- Chapter Tags -->
               <div>
                 ${tagsHtml}
               </div>
             </div>
 
-            <!-- Bottom Footer: Dynamic Back/Previous Link + Grouped Right Completion & Next Chapter Actions -->
-            <div class="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              ${bottomLeftNavHtml}
-
-              <div class="flex flex-wrap items-center gap-3 self-end sm:self-auto">
-                <label for="completionToggle"
-                       class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold cursor-pointer select-none transition ${isPageDone ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'}">
-                  <input
-                    type="checkbox"
-                    id="completionToggle"
-                    ${isPageDone ? 'checked' : ''}
-                    class="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600 focus:ring-emerald-500"
-                    onchange="handleReaderCompletionToggle('${cleanPageId}', '${activeBookId}', this.checked)"
-                  >
-                  <span>${isPageDone ? 'Completed' : 'Mark as Completed'}</span>
-                </label>
-
-                ${nextChapterButtonHtml}
-              </div>
-            </div>
           </div>
 
         </article>
       </div>
+
+      <!-- Three-Zone Bottom Floating Dock -->
+      <div class="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-polaris-border-subtle shadow-[0_-4px_12px_rgba(15,23,42,0.05)]">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap sm:flex-nowrap items-center justify-between gap-4">
+
+          <!-- Left Zone: Back to Library Only -->
+          <div class="shrink-0">
+            <button type="button"
+                    onclick="exitReaderView()"
+                    class="inline-flex items-center gap-1.5 text-xs font-semibold text-polaris-primary-container hover:underline cursor-pointer">
+              <span aria-hidden="true">&larr;</span>
+              <span>Back to Library</span>
+            </button>
+          </div>
+
+          <!-- Center Zone: Progress Bar (% Left | Track | X / Y Chapters Right) -->
+          <div class="order-3 sm:order-2 w-full sm:w-auto sm:flex-1 max-w-md mx-auto flex items-center gap-3 text-xs">
+            <span class="font-mono font-bold text-polaris-text-heading shrink-0">
+              ${progressStats.percentage}%
+            </span>
+            <div class="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden border border-slate-200/80">
+              <div class="${dockBarFillColor} h-full rounded-full transition-all duration-300" style="width: ${progressStats.percentage}%"></div>
+            </div>
+            <span class="font-mono font-medium text-[#475569] shrink-0">
+              ${progressStats.readPages} / ${pagesInBook.length} ${chapterUnitLabel}
+            </span>
+          </div>
+
+          <!-- Right Zone: Mark as Completed + Purple Next Chapter Button -->
+          <div class="order-2 sm:order-3 flex items-center gap-2.5 shrink-0">
+            <label for="completionToggle"
+                   class="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg border text-xs font-semibold cursor-pointer select-none transition whitespace-nowrap ${isPageDone ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-slate-50 hover:bg-slate-100 border-slate-300 text-slate-700'}">
+              <input
+                type="checkbox"
+                id="completionToggle"
+                ${isPageDone ? 'checked' : ''}
+                class="w-4 h-4 text-emerald-600 rounded cursor-pointer accent-emerald-600 focus:ring-emerald-500"
+                onchange="handleReaderCompletionToggle('${cleanPageId}', '${activeBookId}', this.checked)"
+              >
+              <span>${isPageDone ? 'Completed' : 'Mark as Completed'}</span>
+            </label>
+
+            ${nextChapterButtonHtml}
+          </div>
+
+        </div>
+      </div>
+
     </div>
   `;
 
