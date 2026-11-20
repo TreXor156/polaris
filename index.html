@@ -137,13 +137,13 @@
   <aside id="libraryCardDrawer" class="hidden fixed top-0 right-0 z-50 h-full w-full max-w-md bg-white border-l border-polaris-border-subtle shadow-elevation-3 flex flex-col justify-between overflow-y-auto">
     <div class="p-6 space-y-6">
       <!-- Drawer Header -->
-      <div class="flex items-center justify-between pb-4 border-b border-polaris-border-subtle">
-        <div>
-          <span class="text-[10px] font-mono uppercase tracking-widest text-polaris-primary-container font-bold">Official Credentials</span>
-          <h3 class="font-display text-lg font-extrabold text-polaris-text-heading">Patron Library Card</h3>
+      <div class="p-6 border-b border-polaris-border-subtle flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xl">🪪</span>
+          <h3 class="font-display font-bold text-polaris-text-heading text-base">Patron Library Card</h3>
         </div>
-        <button type="button" onclick="closeLibraryCard()" class="w-8 h-8 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center cursor-pointer transition">
-          ✕
+        <button type="button" onclick="closeLibraryCard()" aria-label="Close Patron Library Card" class="w-8 h-8 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 flex items-center justify-center font-bold cursor-pointer">
+        &times;
         </button>
       </div>
 

@@ -546,14 +546,8 @@ async function syncProgressToSheets(bookId, pagesReadArray, totalPages) {
   if (!currentUser || !currentUser.user_id) return;
   if (!WEB_APP_URL || WEB_APP_URL.includes("YOUR_DEPLOYED_WEB_APP_URL")) return;
 
-  const syncIndicator = document.getElementById("syncStatusIndicator");
-  if (syncIndicator) {
-    syncIndicator.innerText = "↻ Syncing...";
-    syncIndicator.className = "text-[11px] font-mono text-amber-600";
-  }
-
   try {
-    const response = await fetch(WEB_APP_URL, {
+    await fetch(WEB_APP_URL, {
       method: "POST",
       headers: {
         "Content-Type": "text/plain;charset=utf-8"
@@ -565,18 +559,8 @@ async function syncProgressToSheets(bookId, pagesReadArray, totalPages) {
         total_pages: totalPages
       })
     });
-
-    const resData = await response.json();
-    if (resData.status === "success" && syncIndicator) {
-      syncIndicator.innerText = "● Synced to Sheets";
-      syncIndicator.className = "text-[11px] font-mono text-emerald-600";
-    }
   } catch (err) {
     console.error("[Polaris Sync] Failed to write progress to Sheets:", err);
-    if (syncIndicator) {
-      syncIndicator.innerText = "⚠️ Offline (Saved Locally)";
-      syncIndicator.className = "text-[11px] font-mono text-red-600";
-    }
   }
 }
 
