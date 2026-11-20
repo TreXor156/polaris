@@ -7,7 +7,7 @@
  * - Apps Script Web App Sync (doGet Login & Progress / doPost Save)
  * - Role-Based UI Visibility (Learner, Creator, Admin)
  * - Dynamic Library Card & Gamification Badges
- * - Breadcrumb Reader, Grouped Bottom-Right Footer Actions & High-Contrast Tags
+ * - Unified Single-Card Reader, Slim Governance Bar & 3-Zone Floating Dock
  * ============================================================================
  */
 
@@ -743,7 +743,7 @@ function showStampToast(stampTitle, icon = "🏅") {
   toast.setAttribute("role", "status");
   toast.setAttribute("aria-live", "polite");
   toast.className = [
-    "fixed bottom-6 right-6 z-50 max-w-sm w-full sm:w-auto",
+    "fixed bottom-20 right-6 z-50 max-w-sm w-full sm:w-auto",
     "bg-slate-900 text-white border border-slate-700/80 rounded-xl shadow-2xl",
     "px-4 py-3.5 flex items-center gap-3.5 cursor-pointer",
     "transform transition-all duration-300 translate-y-4 opacity-0"
@@ -826,9 +826,11 @@ function renderBookshelf(books) {
   const shelfCount = document.getElementById("shelfCount");
   const shelfControls = document.getElementById("shelfControls");
   const heroSection = document.querySelector(".hero-section");
+  const mainFooter = document.getElementById("main-footer");
 
   if (shelfControls) shelfControls.classList.remove("hidden");
   if (heroSection) heroSection.classList.remove("hidden");
+  if (mainFooter) mainFooter.classList.remove("hidden");
   if (currentUser) applyRoleVisibility(currentUser.role);
 
   if (shelfCount) {
@@ -946,7 +948,7 @@ function renderBookshelf(books) {
 }
 
 // ----------------------------------------------------------------------------
-// 11. DEDICATED PAGE READER VIEW (BREADCRUMB + GROUPED FOOTER ACTIONS)
+// 11. DEDICATED PAGE READER VIEW (UNIFIED SINGLE-CARD + 3-ZONE FLOATING DOCK)
 // ----------------------------------------------------------------------------
 function renderMarkdownContent(rawMarkdown) {
   if (!rawMarkdown) {
@@ -992,12 +994,14 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
   const shelfControls = document.getElementById("shelfControls");
   const ingestCallout = document.getElementById("ingestCallout");
   const heroSection = document.querySelector(".hero-section");
+  const mainFooter = document.getElementById("main-footer");
 
   if (!container) return;
 
   if (shelfControls) shelfControls.classList.add("hidden");
   if (ingestCallout) ingestCallout.classList.add("hidden");
   if (heroSection) heroSection.classList.add("hidden");
+  if (mainFooter) mainFooter.classList.add("hidden");
 
   // Determine current chapter index & Next Chapter target
   const currentIdx = pagesInBook.findIndex(p => String(p.page_id || "").trim() === cleanPageId);
@@ -1106,15 +1110,15 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
 
   container.className = "block w-full";
   container.innerHTML = `
-    <div class="max-w-7xl mx-auto w-full pb-24">
+    <div class="max-w-7xl mx-auto w-full pb-28">
 
       <!-- Unified Continuous White Reader Card -->
-      <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 items-stretch">
+      <div class="bg-white border border-polaris-border-subtle rounded-2xl shadow-elevation-1 overflow-hidden grid grid-cols-1 md:grid-cols-12 items-start">
 
-        <!-- Left Sidebar: Playbook Chapter Directory (Baseline-aligned with Breadcrumb) -->
-        <aside class="md:col-span-3 bg-slate-50/70 border-b md:border-b-0 md:border-r border-polaris-border-subtle px-6 pt-6 pb-8 sm:px-8 sm:pt-8">
-          <div class="md:sticky md:top-24">
-            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] leading-tight mb-3">
+        <!-- Left Sidebar: Playbook Chapter Directory (Non-sticky, baseline-aligned with Breadcrumb) -->
+        <aside class="md:col-span-3 bg-slate-50/70 border-b md:border-b-0 md:border-r border-polaris-border-subtle p-6 sm:p-8 self-stretch">
+          <div class="pt-0 mt-0">
+            <h4 class="font-display text-xs font-bold uppercase tracking-wider text-[#475569] leading-tight mt-0 mb-3">
               Playbook Directory
             </h4>
             <div>
@@ -1124,11 +1128,11 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
         </aside>
 
         <!-- Right Pane: Blended Breadcrumb + Chapter Content + Slim Footer Metadata -->
-        <article class="md:col-span-9 px-6 pt-6 pb-8 sm:px-8 sm:pt-8 flex flex-col justify-between space-y-6">
+        <article class="md:col-span-9 p-6 sm:p-8 flex flex-col justify-between space-y-6">
 
-          <div class="space-y-5">
+          <div class="pt-0 mt-0 space-y-5">
             <!-- Blended Breadcrumb Path (Top-aligned on exact baseline with Playbook Directory) -->
-            <nav aria-label="Breadcrumb" class="flex flex-wrap items-center gap-1.5 text-xs text-[#475569] leading-tight">
+            <nav aria-label="Breadcrumb" class="mt-0 pt-0 flex flex-wrap items-center gap-1.5 text-xs text-[#475569] leading-tight">
               <button type="button" onclick="exitReaderView()" class="font-semibold text-polaris-primary-container hover:underline cursor-pointer">
                 Playbook Library
               </button>
@@ -1245,7 +1249,9 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
 
 function exitReaderView() {
   const heroSection = document.querySelector(".hero-section");
+  const mainFooter = document.getElementById("main-footer");
   if (heroSection) heroSection.classList.remove("hidden");
+  if (mainFooter) mainFooter.classList.remove("hidden");
   applyFilters();
 }
 
