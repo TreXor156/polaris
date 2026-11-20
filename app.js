@@ -1019,11 +1019,15 @@ function viewPage(pageId, bookId, shouldScrollTop = true) {
       ? "bg-polaris-primary-container text-white font-semibold shadow-sm"
       : "bg-white text-polaris-text-body hover:bg-slate-100 border border-slate-200 font-medium";
 
+    const fullChapterLabel = `Chapter ${p.page_number || idx + 1}: ${p.title || "Untitled Page"}`;
+    const safeTooltipTitle = fullChapterLabel.replace(/"/g, "&quot;");
+
     return `
       <button type="button"
-              onclick="viewPage('${pId}', '${activeBookId}')" 
+              onclick="viewPage('${pId}', '${activeBookId}')"
+              title="${safeTooltipTitle}"
               class="w-full text-left px-3.5 py-2.5 rounded-lg text-xs transition cursor-pointer font-sans mb-1.5 flex items-center justify-between gap-2 ${activeClass}">
-        <span class="truncate">Chapter ${p.page_number || idx + 1}: ${p.title}</span>
+        <span class="truncate">${fullChapterLabel}</span>
         ${isCurrent ? '<span>•</span>' : (isCompletedItem ? '<span class="text-emerald-600 font-bold">✓</span>' : '')}
       </button>
     `;
