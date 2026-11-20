@@ -884,14 +884,15 @@ function renderBookshelf(books) {
       ? `<span class="inline-flex items-center gap-1 font-bold text-emerald-700">✓ Complete</span>`
       : `<span>Reading Progress</span>`;
 
+    // Updated to "Chapters" to match card footer 1:1
+    const chapterUnitLabel = pageCount === 1 ? "Chapter" : "Chapters";
     const progressLabelRight = stats.isCompleted
-      ? `<span class="font-mono font-bold text-emerald-700">${pageCount} of ${pageCount} Pages (100%)</span>`
-      : `<span class="font-mono text-polaris-text-heading font-semibold">${stats.readPages} of ${pageCount} Pages (${stats.percentage}%)</span>`;
+      ? `<span class="font-mono font-bold text-emerald-700">${pageCount} of ${pageCount} ${chapterUnitLabel} (100%)</span>`
+      : `<span class="font-mono text-polaris-text-heading font-semibold">${stats.readPages} of ${pageCount} ${chapterUnitLabel} (${stats.percentage}%)</span>`;
 
     const barFillColor = stats.isCompleted ? "bg-emerald-500" : "bg-polaris-primary-container";
     const barTrackBorder = stats.isCompleted ? "border-emerald-200 bg-emerald-50" : "border-slate-200 bg-polaris-progress-track";
 
-    // High-contrast progress label row (#475569)
     const progressBlock = `
       <div class="mt-4 pt-3 border-t border-polaris-border-subtle">
         <div class="flex justify-between items-center text-xs text-[#475569] mb-1.5 font-medium">
@@ -911,14 +912,15 @@ function renderBookshelf(books) {
       ? "font-display font-semibold text-polaris-text-heading text-lg leading-snug mb-2 group-hover:text-polaris-primary-container cursor-pointer transition"
       : "font-display font-semibold text-[#475569] text-lg leading-snug mb-2 cursor-not-allowed";
 
-    // High-contrast disabled page button (#475569)
-    const pageActionButton = isBookActive
-      ? `<button type="button" ${actionClickAttr} class="inline-flex items-center gap-1.5 text-xs font-semibold text-polaris-primary-container bg-polaris-primary-light hover:bg-indigo-100 border border-indigo-200 px-3.5 py-1 rounded-full transition cursor-pointer">
-           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
+    // Plain metadata text ("2 Chapters →") replacing the heavy pill button
+    const chapterMetaText = isBookActive
+      ? `<button type="button" ${actionClickAttr} class="inline-flex items-center gap-1 text-xs font-medium text-[#475569] group-hover:text-polaris-primary-container transition cursor-pointer">
+           <span>${pageCount} ${chapterUnitLabel}</span>
+           <span aria-hidden="true" class="transition-transform duration-200 group-hover:translate-x-0.5">&rarr;</span>
          </button>`
-      : `<button type="button" disabled aria-disabled="true" class="inline-flex items-center gap-1.5 text-xs font-semibold text-[#475569] bg-slate-100 border border-slate-300 px-3.5 py-1 rounded-full cursor-not-allowed select-none">
-           ${pageCount} ${pageCount === 1 ? "Page" : "Pages"} &rarr;
-         </button>`;
+      : `<span class="inline-flex items-center gap-1 text-xs font-medium text-[#475569] select-none cursor-not-allowed">
+           ${pageCount} ${chapterUnitLabel}
+         </span>`;
 
     const cardBorderClasses = isBookActive
       ? "bg-polaris-card-bg border border-polaris-border-subtle rounded-xl p-6 hover:-translate-y-0.5 hover:shadow-elevation-2 transition-all duration-200 flex flex-col justify-between group"
@@ -945,7 +947,7 @@ function renderBookshelf(books) {
           ${progressBlock}
           <div class="flex items-center justify-between pt-4 mt-2 text-xs">
             ${statusPill}
-            ${pageActionButton}
+            ${chapterMetaText}
           </div>
         </div>
       </div>
